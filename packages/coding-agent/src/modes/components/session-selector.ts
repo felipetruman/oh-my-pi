@@ -14,9 +14,10 @@ import {
 	visibleWidth,
 } from "@oh-my-pi/pi-tui";
 import { formatBytes } from "@oh-my-pi/pi-utils";
+import { t } from "../../i18n";
 import { theme } from "../../modes/theme/theme";
 import { matchesAppInterrupt, matchesSelectDown, matchesSelectUp } from "../../modes/utils/keybinding-matchers";
-import type { SessionInfo, SessionStatus } from "../../session/session-listing";
+import { NO_SESSION_MESSAGES, type SessionInfo, type SessionStatus } from "../../session/session-listing";
 import { shortenPath } from "../../tools/render-utils";
 import { HookSelectorComponent } from "./hook-selector";
 import { bottomBorder, OverlayPanel, row, topBorder } from "./overlay-box";
@@ -30,15 +31,15 @@ import { bottomBorder, OverlayPanel, row, topBorder } from "./overlay-box";
 function formatSessionStatus(status: SessionStatus | undefined): string | undefined {
 	switch (status) {
 		case "complete":
-			return theme.fg("success", `${theme.status.success} done`);
+			return theme.fg("success", `${theme.status.success} ${t("session.status.done")}`);
 		case "interrupted":
-			return theme.fg("warning", `${theme.status.warning} interrupted`);
+			return theme.fg("warning", `${theme.status.warning} ${t("session.status.interrupted")}`);
 		case "aborted":
-			return theme.fg("muted", `${theme.status.aborted} aborted`);
+			return theme.fg("muted", `${theme.status.aborted} ${t("session.status.aborted")}`);
 		case "error":
-			return theme.fg("error", `${theme.status.error} error`);
+			return theme.fg("error", `${theme.status.error} ${t("session.status.error")}`);
 		case "pending":
-			return theme.fg("accent", `${theme.status.pending} pending`);
+			return theme.fg("accent", `${theme.status.pending} ${t("session.status.pending")}`);
 		default:
 			return undefined;
 	}
@@ -588,12 +589,10 @@ class SessionList implements Component {
 
 		if (this.#filteredSessions.length === 0) {
 			if (this.#showCwd) {
-				lines.push(truncateToWidth(theme.fg("muted", "No sessions found"), width));
+				lines.push(truncateToWidth(theme.fg("muted", t("session.empty")), width));
 			} else {
 				// "Current folder" scope - hint to try "all"
-				lines.push(
-					truncateToWidth(theme.fg("muted", "No sessions in current folder. Press Tab to view all."), width),
-				);
+				lines.push(truncateToWidth(theme.fg("muted", t("session.emptyFolder")), width));
 			}
 			return lines;
 		}
@@ -606,11 +605,15 @@ class SessionList implements Component {
 			const diffHours = Math.floor(diffMs / 3600000);
 			const diffDays = Math.floor(diffMs / 86400000);
 
-			if (diffMins < 1) return "just now";
-			if (diffMins < 60) return `${diffMins} minute${diffMins !== 1 ? "s" : ""} ago`;
-			if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? "s" : ""} ago`;
-			if (diffDays === 1) return "1 day ago";
-			if (diffDays < 7) return `${diffDays} days ago`;
+			if (diffMins < 1) return t("session.time.justNow");
+			if (diffMins < 60) {
+				return diffMins === 1 ? t("session.time.minutesOne") : t("session.time.minutesOther", { count: diffMins });
+			}
+			if (diffHours < 24) {
+				return diffHours === 1 ? t("session.time.hoursOne") : t("session.time.hoursOther", { count: diffHours });
+			}
+			if (diffDays === 1) return t("session.time.dayOne");
+			if (diffDays < 7) return t("session.time.daysOther", { count: diffDays });
 
 			return date.toLocaleDateString();
 		};
@@ -652,8 +655,11 @@ class SessionList implements Component {
 			const session = this.#filteredSessions[i];
 			const isSelected = i === this.#selectedIndex;
 
-			// Normalize first message to single line
-			const normalizedMessage = session.firstMessage.replace(/\n/g, " ").trim();
+			// `firstMessage` carries an English sentinel when a session has no user
+			// message; it is compared in session-listing.ts, so it is swapped for
+			// display text here rather than translated at the source.
+			const rawMessage = session.firstMessage.replace(/\n/g, " ").trim();
+			const normalizedMessage = rawMessage === NO_SESSION_MESSAGES ? t("session.noMessages") : rawMessage;
 
 			// First line: cursor + optional pin icon + title (or first message if no title)
 			const cursorSymbol = `${theme.nav.cursor} `;
@@ -691,14 +697,14 @@ class SessionList implements Component {
 			const modified = formatDate(session.modified);
 			let metadata = `  ${dim(modified)} ${dot} ${dim(formatBytes(session.size))}`;
 			if (currentPath !== undefined && session.path === currentPath) {
-				metadata += ` ${dot} ${theme.fg("accent", "current")}`;
+				metadata += ` ${dot} ${theme.fg("accent", t("session.current"))}`;
 			}
 			const status = formatSessionStatus(session.status);
 			if (status) {
 				metadata += ` ${dot} ${status}`;
 			}
 			if (session.parentSessionPath) {
-				metadata += ` ${dot} ${dim(`${theme.icon.branch} fork`)}`;
+				metadata += ` ${dot} ${dim(`${theme.icon.branch} ${t("session.fork")}`)}`;
 			}
 			if (this.#showCwd && session.cwd) {
 				metadata += ` ${dot} ${dim(shortenPath(session.cwd))}`;
@@ -886,7 +892,7 @@ export class SessionSelectorComponent extends OverlayPanel {
 		onExit: () => void,
 		options: SessionSelectorOptions = {},
 	) {
-		super(options.title ?? "Resume Session");
+		super(options.title ?? t("session.resumeTitle"));
 
 		this.#messageContainer = new Container();
 		this.#onDelete = options.onDelete;
@@ -895,7 +901,7 @@ export class SessionSelectorComponent extends OverlayPanel {
 		this.#globalSessions = options.allSessions ?? null;
 		this.#getTerminalRows = options.getTerminalRows ?? (() => 24);
 		this.#fillHeight = options.fillHeight ?? false;
-		this.#title = options.title ?? "Resume Session";
+		this.#title = options.title ?? t("session.resumeTitle");
 		this.#scopeLabel = options.scopeLabel;
 		this.title = this.#headerLabel();
 		// One spacer of breathing room; OverlayPanel supplies the two outer
@@ -943,7 +949,9 @@ export class SessionSelectorComponent extends OverlayPanel {
 
 	#headerLabel(): string {
 		if (this.#scopeLabel === false) return this.#title;
-		const scopeLabel = this.#scopeLabel ?? (this.#scope === "all" ? "all projects" : "current folder");
+		const scopeLabel =
+			this.#scopeLabel ??
+			(this.#scope === "all" ? t("session.scope.allProjects") : t("session.scope.currentFolder"));
 		return `${this.#title} (${scopeLabel})`;
 	}
 
@@ -960,7 +968,7 @@ export class SessionSelectorComponent extends OverlayPanel {
 				if (!this.#loadAllSessions) return;
 				this.#toggling = true;
 				this.#messageContainer.clear();
-				this.#messageContainer.addChild(new Text(theme.fg("muted", "Loading all projects…"), 0, 0));
+				this.#messageContainer.addChild(new Text(theme.fg("muted", t("session.loadingAllProjects")), 0, 0));
 				this.#onRequestRender?.();
 				try {
 					global = await this.#loadAllSessions();
@@ -1012,7 +1020,9 @@ export class SessionSelectorComponent extends OverlayPanel {
 
 	#showError(message: string): void {
 		this.#messageContainer.clear();
-		this.#messageContainer.addChild(new Text(theme.fg("error", `Error: ${replaceTabs(message)}`), 0, 0));
+		this.#messageContainer.addChild(
+			new Text(theme.fg("error", t("session.error", { message: replaceTabs(message) })), 0, 0),
+		);
 		this.#messageContainer.addChild(new Spacer(1));
 	}
 
@@ -1027,11 +1037,14 @@ export class SessionSelectorComponent extends OverlayPanel {
 			this.#contentSlot.addChild(this.#sessionList);
 			this.#onRequestRender?.();
 		};
+		// The selector resolves to the picked label, so `yes` is compared by value
+		// rather than against a literal that only matches in English.
+		const yes = t("common.yes");
 		this.#confirmationDialog = new HookSelectorComponent(
-			`Delete session?\n${displayName}`,
-			["Yes", "No"],
+			`${t("session.deletePrompt")}\n${displayName}`,
+			[yes, t("common.no")],
 			async (option: string) => {
-				if (option === "Yes" && this.#onDelete) {
+				if (option === yes && this.#onDelete) {
 					this.#clearError();
 					try {
 						const deleted = await this.#onDelete(session);
@@ -1086,8 +1099,8 @@ export class SessionSelectorComponent extends OverlayPanel {
 
 	/** Blank · keybinding hint · bottom border. Rendered by {@link render}. */
 	#footerLines(width: number): string[] {
-		const scopeHint = this.#scope === "all" ? "current folder" : "all projects";
-		const hint = theme.fg("muted", `[Del/⌫ delete · Enter select · Tab ${scopeHint} · Esc cancel]`);
+		const scopeHint = this.#scope === "all" ? t("session.scope.currentFolder") : t("session.scope.allProjects");
+		const hint = theme.fg("muted", t("session.footerHint", { scope: scopeHint }));
 		return [row("", width), row(hint, width), row("", width), bottomBorder(width)];
 	}
 

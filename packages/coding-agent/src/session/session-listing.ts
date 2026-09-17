@@ -133,15 +133,26 @@ function formatTimeAgo(date: Date): string {
 }
 
 /**
+ * Stand-in stored on `SessionInfo.firstMessage` when a session has no user
+ * message. Compared here and in the foreign-session importer, so it stays a
+ * fixed English sentinel; the session picker swaps it for localized text at
+ * render time.
+ */
+export const NO_SESSION_MESSAGES = "(no messages)";
+
+/**
  * Friendly display name for a session: explicit title, then first user prompt,
  * then a timestamp-based label. The raw UUID `id` is intentionally never used —
  * it is unfriendly and indistinguishable from neighboring sessions in the UI.
  */
+
 function sessionDisplayName(info: SessionInfo): string {
 	const title = sanitizeSessionName(info.title);
 	if (title) return title;
 	const first =
-		info.firstMessage && info.firstMessage !== "(no messages)" ? sanitizeSessionName(info.firstMessage) : undefined;
+		info.firstMessage && info.firstMessage !== NO_SESSION_MESSAGES
+			? sanitizeSessionName(info.firstMessage)
+			: undefined;
 	if (first) return first;
 	const created = info.created.getTime();
 	const ts = Number.isFinite(created) ? created : info.modified.getTime();
@@ -472,7 +483,7 @@ async function scanSessionFile(
 			modified: mtime,
 			messageCount,
 			size,
-			firstMessage: firstMessage || "(no messages)",
+			firstMessage: firstMessage || NO_SESSION_MESSAGES,
 			allMessagesText: allMessages.length > 0 ? allMessages.join(" ") : firstMessage,
 			status: withStatus ? deriveSessionStatus(suffix) : undefined,
 		};

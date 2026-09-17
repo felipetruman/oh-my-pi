@@ -2,7 +2,7 @@ import { directoryExists } from "@oh-my-pi/pi-utils";
 import { ClaudeSessionStore } from "./claude-session-store";
 import { CodexSessionStore } from "./codex-session-store";
 import type { ForeignSessionInfo, ForeignSessionSource, ForeignSessionStore } from "./foreign-session-store";
-import type { SessionInfo } from "./session-listing";
+import { NO_SESSION_MESSAGES, type SessionInfo } from "./session-listing";
 import type { SessionManager } from "./session-manager";
 
 /** Construct the importer for a supported foreign session source. */
@@ -17,7 +17,7 @@ export function foreignSessionSourceName(source: ForeignSessionSource): string {
 
 /** Convert lightweight foreign metadata for the existing session picker. */
 export function foreignSessionInfoToSessionInfo(info: ForeignSessionInfo): SessionInfo {
-	const firstMessage = info.firstMessage ?? "(no messages)";
+	const firstMessage = info.firstMessage ?? NO_SESSION_MESSAGES;
 	return {
 		path: info.path,
 		id: info.id,
