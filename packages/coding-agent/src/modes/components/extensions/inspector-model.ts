@@ -10,6 +10,7 @@ import { arkToWireSchema, isArkSchema } from "@oh-my-pi/pi-ai/utils/schema";
 import { normalizePathForComparison, parseFrontmatter } from "@oh-my-pi/pi-utils";
 import { parseRuleAgents, parseRuleConditionAndScope } from "../../../capability/rule";
 import { slashCommandFrontmatterDisplay } from "../../../capability/slash-command";
+import { t } from "../../../i18n";
 import { isFilesystemSourcePath } from "../../../tools/path-utils";
 import {
 	sanitizeDisplayField,
@@ -187,12 +188,14 @@ export function toolParamsFromSchema(schema: unknown): ToolParamView[] {
 		const record = spec && typeof spec === "object" ? (spec as Record<string, unknown>) : {};
 		const isRequired = required.has(name);
 		const defaultVal =
-			record.default !== undefined ? `Default: ${sanitizeDisplayLine(String(record.default))}` : null;
+			record.default !== undefined
+				? t("plugin.param.defaultValue", { value: sanitizeDisplayLine(String(record.default)) })
+				: null;
 		params.push({
 			name: sanitizeDisplayLine(name),
 			type: paramType(record),
 			required: isRequired,
-			flag: isRequired ? "Required" : (defaultVal ?? "Optional"),
+			flag: isRequired ? t("plugin.param.required") : (defaultVal ?? t("plugin.param.optional")),
 			description: typeof record.description === "string" ? sanitizeDisplayField(record.description) : undefined,
 		});
 	}
@@ -237,7 +240,7 @@ export function liveToolsForExtension(ext: Extension, source: ToolRuntimeSource 
 
 export function liveToolDetail(live: LiveToolRecord | undefined): string | undefined {
 	if (!live) return undefined;
-	if (live.hidden) return "hidden";
+	if (live.hidden) return t("plugin.state.hidden");
 	return undefined;
 }
 
@@ -268,15 +271,15 @@ export function formatExtensionListHint(ext: Extension, lives: LiveToolRecord[] 
 	switch (ext.kind) {
 		case "tool": {
 			if (lives.length > 1) {
-				detail = `${lives.length} tools`;
-				if (lives.every(tool => tool.hidden)) detail = `hidden · ${detail}`;
+				detail = t("plugin.state.toolCount", { count: lives.length });
+				if (lives.every(tool => tool.hidden)) detail = `${t("plugin.state.hidden")} · ${detail}`;
 			} else if (lives[0]?.hidden) {
-				detail = "hidden";
+				detail = t("plugin.state.hidden");
 			}
 			break;
 		}
 		case "skill":
-			detail = skillInspectorData(ext).hidden ? "hidden" : undefined;
+			detail = skillInspectorData(ext).hidden ? t("plugin.state.hidden") : undefined;
 			break;
 		case "slash-command":
 			detail = ext.trigger ?? `/${ext.name}`;
@@ -308,7 +311,7 @@ export function toolInspectorData(
 		return {
 			description: sanitizeDisplayField(description),
 			params: [],
-			runtimeDetail: `${lives.length} tools`,
+			runtimeDetail: t("plugin.state.toolCount", { count: lives.length }),
 			factory: lives.map(live => ({
 				...live,
 				name: sanitizeDisplayLine(live.name),
@@ -384,8 +387,8 @@ export function skillInspectorData(ext: Extension): {
 	const alwaysApply = frontmatter.alwaysApply === true;
 	const globs = stringArray(frontmatter.globs) ?? stringArray(raw.globs);
 	let runtimeDetail: string | undefined;
-	if (hidden) runtimeDetail = "hidden";
-	else if (alwaysApply) runtimeDetail = "always";
+	if (hidden) runtimeDetail = t("plugin.state.hidden");
+	else if (alwaysApply) runtimeDetail = t("plugin.state.always");
 	else if (globs) runtimeDetail = globs.join(", ");
 	return {
 		description: stringField(frontmatter, "description") ?? sanitizeDisplayField(ext.description),
@@ -462,19 +465,21 @@ export function contextInspectorData(ext: Extension): { content: string; runtime
 export function enablementLabel(state: ExtensionState, reason?: string, shadowedBy?: string): string {
 	switch (state) {
 		case "active":
-			return "Active";
+			return t("plugin.state.active");
 		case "disabled": {
 			const reasonText =
 				reason === "provider-disabled"
-					? "provider disabled"
+					? t("plugin.state.reasonProviderDisabled")
 					: reason === "user-opt-in"
-						? "~/ config not enabled"
+						? t("plugin.state.reasonUserOptIn")
 						: reason === "item-disabled"
-							? "manually disabled"
-							: "unknown";
-			return `Disabled (${reasonText})`;
+							? t("plugin.state.reasonItemDisabled")
+							: t("plugin.state.reasonUnknown");
+			return t("plugin.state.disabled", { reason: reasonText });
 		}
 		case "shadowed":
-			return `Shadowed${shadowedBy ? ` by ${sanitizeDisplayText(shadowedBy)}` : ""}`;
+			return shadowedBy
+				? t("plugin.state.shadowedBy", { name: sanitizeDisplayText(shadowedBy) })
+				: t("plugin.state.shadowed");
 	}
 }

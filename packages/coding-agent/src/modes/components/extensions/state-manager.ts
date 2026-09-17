@@ -25,6 +25,7 @@ import {
 	isUserSourceEnabled,
 	loadCapability,
 } from "../../../discovery";
+import { t } from "../../../i18n";
 import { readDisabledServers, readEnabledServers } from "../../../mcp/config-writer";
 import { commandPreview } from "./inspector-model";
 import { inferMcpTransport } from "./mcp-runtime";
@@ -132,7 +133,7 @@ export async function loadAllExtensions(cwd?: string, disabledIds?: string[]): P
 		const rules = await loadCapability<Rule>("rules", loadOpts);
 		addItems(rules.all, "rule", {
 			getDescription: r => r.description,
-			getTrigger: r => r.globs?.join(", ") || (r.alwaysApply ? "always" : undefined),
+			getTrigger: r => r.globs?.join(", ") || (r.alwaysApply ? t("plugin.state.always") : undefined),
 		});
 	} catch (error) {
 		logger.warn("Failed to load rules capability", { error: String(error) });
@@ -281,7 +282,7 @@ export async function loadAllExtensions(cwd?: string, disabledIds?: string[]): P
 				kind: "context-file",
 				name,
 				displayName: name,
-				description: file.level === "user" ? "User-level context" : "Project-level context",
+				description: file.level === "user" ? t("plugin.context.userLevel") : t("plugin.context.projectLevel"),
 				path: file.path,
 				source: sourceFromMeta(file._source),
 				state,
@@ -416,25 +417,25 @@ export function applyFilter(extensions: Extension[], query: string): Extension[]
 function getKindDisplayName(kind: ExtensionKind): string {
 	switch (kind) {
 		case "extension-module":
-			return "Extension Modules";
+			return t("plugin.kind.extensionModule");
 		case "skill":
-			return "Skills";
+			return t("plugin.kind.skill");
 		case "rule":
-			return "Rules";
+			return t("plugin.kind.rule");
 		case "tool":
-			return "Tools";
+			return t("plugin.kind.tool");
 		case "mcp":
-			return "MCP Servers";
+			return t("plugin.kind.mcp");
 		case "prompt":
-			return "Prompts";
+			return t("plugin.kind.prompt");
 		case "instruction":
-			return "Instructions";
+			return t("plugin.kind.instruction");
 		case "context-file":
-			return "Context Files";
+			return t("plugin.kind.contextFile");
 		case "hook":
-			return "Hooks";
+			return t("plugin.kind.hook");
 		case "slash-command":
-			return "Slash Commands";
+			return t("plugin.kind.slashCommand");
 		default:
 			return kind;
 	}
@@ -457,7 +458,7 @@ export function buildProviderTabs(extensions: Extension[]): ProviderTab[] {
 	// ALL tab first
 	tabs.push({
 		id: "all",
-		label: "ALL",
+		label: t("plugin.dashboard.tabAll"),
 		enabled: true,
 		count: extensions.length,
 	});

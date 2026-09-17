@@ -1,2 +1,241 @@
-/** Plugin settings and picker, extension dashboards, the /hotkeys panel. Filled by the pt-BR localization work. */
-export const extensions = {} as const;
+/** Plugin settings and picker, extension dashboards, the /hotkeys panel. Filled by the extensions migration task. */
+export const extensions = {
+	// ── Plugins list (`/settings` → Plugins) ──────────────────────────────
+	// Plugin names, ids, versions, scopes and paths are data and stay verbatim.
+	"plugin.list.empty": "No plugins installed",
+	"plugin.list.featureCount": "{enabled}/{total} features",
+	"plugin.list.hintConfigure": "Enter to configure \u00b7 Esc to go back",
+	"plugin.list.installMarketplace": "Install marketplace plugins: omp plugin install <name>@<marketplace>",
+	"plugin.list.installNpm": "Install npm plugins:        omp plugin install <package>",
+	"plugin.list.shadowedBy": "shadowed by {name}",
+
+	// ── Plugin detail ─────────────────────────────────────────────────────
+	// The metadata labels are padded to one 14-column gutter; keep the width
+	// when translating or the values stop lining up.
+	"plugin.detail.enableFeature": "Enable {feature} feature",
+	"plugin.detail.enableMarketplaceToggle": "Enable or disable this marketplace plugin",
+	"plugin.detail.enableToggle": "Enable or disable this plugin",
+	"plugin.detail.hintEdit": "Enter to edit \u00b7 Esc to go back",
+	"plugin.detail.labelGitSha": "git sha       ",
+	"plugin.detail.labelInstallPath": "install path  ",
+	"plugin.detail.labelInstalledAt": "installed at  ",
+	"plugin.detail.labelLastUpdated": "last updated  ",
+	"plugin.detail.labelScope": "scope         ",
+	"plugin.detail.labelVersion": "version       ",
+	"plugin.detail.unknown": "(unknown)",
+
+	// ── Plugin setting submenus ───────────────────────────────────────────
+	"plugin.config.configureKey": "Configure {key}",
+	"plugin.config.hintSave": "Enter to save \u00b7 Esc to cancel",
+	"plugin.config.hintSelect": "Enter to select \u00b7 Esc to cancel",
+	"plugin.config.notSet": "(not set)",
+	"plugin.config.selectValueFor": "Select value for {key}",
+	"plugin.config.typeHint": "Type: {type}",
+
+	// ── Marketplace plugin picker ─────────────────────────────────────────
+	"plugin.selector.empty": "No plugins available",
+	"plugin.selector.emptyNoMarketplace": "Add a marketplace first: /marketplace add <source>",
+	"plugin.selector.emptyNoPlugins": "Configured marketplaces have no plugins",
+	"plugin.selector.installedTag": "installed",
+
+	// ── Extension Control Center (`/extensions`) ──────────────────────────
+	"plugin.dashboard.footer":
+		" \u2191/\u2193: navigate \u00b7 Space: toggle \u00b7 \u2190/\u2192: provider \u00b7 {key}: expand \u00b7 Esc: close",
+	"plugin.dashboard.title": "Extension Control Center",
+	"plugin.dashboard.tabAll": "ALL",
+
+	// ── Inventory list ────────────────────────────────────────────────────
+	"plugin.inventory.emptyProvider": "No extensions found for this provider.",
+	"plugin.inventory.enableProvider": "Enable {provider}",
+	"plugin.inventory.loadUserConfig": "Load ~/ {provider} config",
+	"plugin.inventory.masterSwitchBadge": "(Master Switch)",
+	"plugin.inventory.searchPlaceholder": "type to filter",
+	"plugin.inventory.userSourceBadge": "(opt-in; project config always loads)",
+
+	// ── Capability kind headings ──────────────────────────────────────────
+	// The inventory list and the provider tree label the same kinds with
+	// different lengths, so the short forms are separate keys.
+	"plugin.kind.contextFile": "Context Files",
+	"plugin.kind.contextFileShort": "Context",
+	"plugin.kind.extensionModule": "Extension Modules",
+	"plugin.kind.hook": "Hooks",
+	"plugin.kind.instruction": "Instructions",
+	"plugin.kind.mcp": "MCP Servers",
+	"plugin.kind.prompt": "Prompts",
+	"plugin.kind.rule": "Rules",
+	"plugin.kind.skill": "Skills",
+	"plugin.kind.slashCommand": "Slash Commands",
+	"plugin.kind.slashCommandShort": "Commands",
+	"plugin.kind.tool": "Tools",
+
+	// ── Discovered context files ──────────────────────────────────────────
+	"plugin.context.projectLevel": "Project-level context",
+	"plugin.context.userLevel": "User-level context",
+
+	// ── Inspector pane ────────────────────────────────────────────────────
+	// Frontmatter-key labels (`globs`, `condition`, `ast`, `scope`, `agents`,
+	// `interrupt`, `when`, `tool`, `files`, `hint`) stay verbatim: they name the
+	// YAML keys the author writes, not prose.
+	"plugin.inspector.acceptsArguments": "accepts $ARGUMENTS",
+	"plugin.inspector.argCount": "{count} args",
+	"plugin.inspector.argsToExpand": "\u2026 args ({key} to expand)",
+	"plugin.inspector.empty": "Select an extension",
+	"plugin.inspector.emptyHint": "to view details",
+	"plugin.inspector.emptyPreview": "(empty)",
+	"plugin.inspector.envDefined": "{count} defined",
+	"plugin.inspector.labelArgs": "Args",
+	"plugin.inspector.labelCommand": "Command",
+	"plugin.inspector.labelEnv": "Env vars",
+	"plugin.inspector.labelUrl": "URL",
+	"plugin.inspector.levelNative": "Native",
+	"plugin.inspector.levelProject": "Project",
+	"plugin.inspector.levelUser": "User",
+	"plugin.inspector.moreToExpand": "\u2026 {count} more ({key} to expand)",
+	"plugin.inspector.noApplyConditions": "(no apply conditions)",
+	"plugin.inspector.noArguments": "(no arguments)",
+	"plugin.inspector.origin": "Origin:",
+	"plugin.inspector.originVia": "via {provider} ({level})",
+	"plugin.inspector.patternCount": "{count} patterns",
+	"plugin.inspector.previewInstruction": "Instruction",
+	"plugin.inspector.previewPreview": "Preview",
+	"plugin.inspector.previewPrompt": "Prompt",
+	"plugin.inspector.previewRule": "Rule",
+	"plugin.inspector.previewTemplate": "Template",
+	"plugin.inspector.sectionApplies": "Applies",
+	"plugin.inspector.sectionArguments": "Arguments",
+	"plugin.inspector.sectionHook": "Hook",
+	"plugin.inspector.sectionInvocation": "Invocation",
+	"plugin.inspector.sectionPrompts": "Prompts",
+	"plugin.inspector.sectionResources": "Resources",
+	"plugin.inspector.sectionTools": "Tools",
+	"plugin.inspector.sectionTrigger": "Trigger",
+	"plugin.inspector.skillHiddenNote": "omitted from the system-prompt skill list",
+
+	// ── Tool parameters ───────────────────────────────────────────────────
+	// JSON Schema type names (`string`, `enum`, `union`, `any`, …) stay verbatim.
+	"plugin.param.defaultValue": "Default: {value}",
+	"plugin.param.optional": "Optional",
+	"plugin.param.required": "Required",
+
+	// ── Extension state ──────────────────────────────────────────────────
+	"plugin.state.active": "Active",
+	"plugin.state.always": "always",
+	"plugin.state.alwaysApply": "always apply",
+	"plugin.state.disabled": "Disabled ({reason})",
+	"plugin.state.hidden": "hidden",
+	"plugin.state.reasonItemDisabled": "manually disabled",
+	"plugin.state.reasonProviderDisabled": "provider disabled",
+	"plugin.state.reasonUnknown": "unknown",
+	"plugin.state.reasonUserOptIn": "~/ config not enabled",
+	"plugin.state.shadowed": "Shadowed",
+	"plugin.state.shadowedBy": "Shadowed by {name}",
+	"plugin.state.toolCount": "{count} tools",
+
+	// ── Live MCP health inside `/extensions` ──────────────────────────────
+	// Namespaced under `plugin.` because `mcp.*` belongs to the MCP wizard.
+	"plugin.mcp.healthConnected": "Connected",
+	"plugin.mcp.healthConnecting": "Connecting",
+	"plugin.mcp.healthDisconnected": "Not connected",
+	"plugin.mcp.healthInactive": "Inactive",
+	"plugin.mcp.hintConnecting": "connecting\u2026",
+	"plugin.mcp.hintInactive": "inactive",
+	"plugin.mcp.hintUnavailable": "unavailable",
+	"plugin.mcp.promptCountOne": "1 prompt",
+	"plugin.mcp.promptCountOther": "{count} prompts",
+	"plugin.mcp.resourceCountOne": "1 resource",
+	"plugin.mcp.resourceCountOther": "{count} resources",
+	"plugin.mcp.toolCountOne": "1 tool",
+	"plugin.mcp.toolCountOther": "{count} tools",
+
+	// ── `/hotkeys` panel chrome ───────────────────────────────────────────
+	// Key spellings (`Ctrl+A`, `Esc`, `Tab`, `←`) are identifiers and never
+	// translated; only the prose around them is.
+	"hotkeys.columnAction": "Action",
+	"hotkeys.columnKey": "Key",
+	"hotkeys.doubleTapEmptyEditor": "double-tap {key} (empty editor)",
+	"hotkeys.hold": "Hold",
+	"hotkeys.sectionEditing": "**Editing**",
+	"hotkeys.sectionNavigation": "**Navigation**",
+	"hotkeys.sectionOther": "**Other**",
+
+	// ── `/hotkeys` rows that are not driven by an action id ───────────────
+	"hotkeys.row.arrowKeys": "Arrow keys",
+	"hotkeys.row.bash": "Run bash command",
+	"hotkeys.row.bashNoContext": "Run bash command (excluded from context)",
+	"hotkeys.row.deleteToLineEnd": "Delete to end of line",
+	"hotkeys.row.deleteToLineStart": "Delete to start of line",
+	"hotkeys.row.deleteWordBackwards": "Delete word backwards",
+	"hotkeys.row.exit": "Exit",
+	"hotkeys.row.exitOrDeleteForward": "Delete char forward (with draft) / exit (empty prompt)",
+	"hotkeys.row.githubReference": "GitHub issue/PR reference (e.g. `#3164` \u2192 `pr://`/`issue://`)",
+	"hotkeys.row.lineEnd": "End of line",
+	"hotkeys.row.lineStart": "Start of line",
+	"hotkeys.row.moveByWord": "Move by word",
+	"hotkeys.row.moveCursorOrHistory": "Move cursor / browse history (Up when empty)",
+	"hotkeys.row.newLine": "New line",
+	"hotkeys.row.promptActions": "Prompt actions (copy / undo / move cursor)",
+	"hotkeys.row.python": "Run Python in shared kernel",
+	"hotkeys.row.pythonNoContext": "Run Python (excluded from context)",
+	"hotkeys.row.sendMessage": "Send message",
+	"hotkeys.row.slashCommands": "Slash commands",
+	"hotkeys.row.speechToText": "Speech-to-text (push-to-talk): hold to record, release to transcribe",
+	"hotkeys.row.tabCompletion": "Path completion / accept autocomplete",
+
+	// ── Keybinding descriptions, keyed by action id ───────────────────────
+	// `describeKeybinding()` prefers these over the English description the
+	// keybinding registry ships with. An action id missing here still renders —
+	// it falls back to the registry string.
+	"hotkeys.key.app.agents.hub": "Open the agent hub",
+	"hotkeys.key.app.clear": "Clear editor (first) / exit (second)",
+	"hotkeys.key.app.clipboard.copyLine": "Copy current line",
+	"hotkeys.key.app.clipboard.copyPrompt": "Copy whole prompt",
+	"hotkeys.key.app.clipboard.pasteImage": "Paste image or text from clipboard",
+	"hotkeys.key.app.display.reset": "Reset terminal display",
+	"hotkeys.key.app.editor.external": "Edit message in external editor",
+	"hotkeys.key.app.history.search": "Search prompt history",
+	"hotkeys.key.app.interrupt": "Cancel autocomplete / interrupt active work",
+	"hotkeys.key.app.live.toggle": "Start/stop live voice mode (/live)",
+	"hotkeys.key.app.model.cycleBackward": "Cycle role models (backward)",
+	"hotkeys.key.app.model.cycleForward": "Cycle role models (slow/default/smol)",
+	"hotkeys.key.app.model.select": "Select model (set roles)",
+	"hotkeys.key.app.model.selectTemporary": "Select model (temporary)",
+	"hotkeys.key.app.plan.toggle": "Toggle plan mode",
+	"hotkeys.key.app.retry": "Retry last failed assistant turn",
+	"hotkeys.key.app.suspend": "Suspend to background",
+	"hotkeys.key.app.thinking.cycle": "Cycle thinking level",
+	"hotkeys.key.app.thinking.toggle": "Toggle thinking block visibility",
+	"hotkeys.key.app.tools.expand": "Toggle tool output expansion",
+	"hotkeys.key.app.tools.toggleVisibility": "Toggle tool activity visibility",
+	"hotkeys.key.tui.editor.cursorDown": "Move cursor down",
+	"hotkeys.key.tui.editor.cursorLeft": "Move cursor left",
+	"hotkeys.key.tui.editor.cursorLineEnd": "Move to line end",
+	"hotkeys.key.tui.editor.cursorLineStart": "Move to line start",
+	"hotkeys.key.tui.editor.cursorRight": "Move cursor right",
+	"hotkeys.key.tui.editor.cursorUp": "Move cursor up",
+	"hotkeys.key.tui.editor.cursorWordLeft": "Move cursor word left",
+	"hotkeys.key.tui.editor.cursorWordRight": "Move cursor word right",
+	"hotkeys.key.tui.editor.deleteCharBackward": "Delete character backward",
+	"hotkeys.key.tui.editor.deleteCharForward": "Delete character forward",
+	"hotkeys.key.tui.editor.deleteToLineEnd": "Delete to line end",
+	"hotkeys.key.tui.editor.deleteToLineStart": "Delete to line start",
+	"hotkeys.key.tui.editor.deleteWordBackward": "Delete word backward",
+	"hotkeys.key.tui.editor.deleteWordForward": "Delete word forward",
+	"hotkeys.key.tui.editor.jumpBackward": "Jump backward to character",
+	"hotkeys.key.tui.editor.jumpForward": "Jump forward to character",
+	"hotkeys.key.tui.editor.pageDown": "Page down",
+	"hotkeys.key.tui.editor.pageUp": "Page up",
+	"hotkeys.key.tui.editor.spellingSuggestions": "Show spelling replacements",
+	"hotkeys.key.tui.editor.undo": "Undo",
+	"hotkeys.key.tui.editor.yank": "Yank",
+	"hotkeys.key.tui.editor.yankPop": "Yank pop",
+	"hotkeys.key.tui.input.copy": "Copy selection",
+	"hotkeys.key.tui.input.newLine": "Insert newline",
+	"hotkeys.key.tui.input.submit": "Submit input",
+	"hotkeys.key.tui.input.tab": "Tab / autocomplete",
+	"hotkeys.key.tui.select.cancel": "Cancel selection",
+	"hotkeys.key.tui.select.confirm": "Confirm selection",
+	"hotkeys.key.tui.select.down": "Move selection down",
+	"hotkeys.key.tui.select.pageDown": "Selection page down",
+	"hotkeys.key.tui.select.pageUp": "Selection page up",
+	"hotkeys.key.tui.select.up": "Move selection up",
+} as const;

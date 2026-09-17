@@ -8,6 +8,7 @@
 import type { MCPServer } from "../../../capability/mcp";
 import type { SourceMeta } from "../../../capability/types";
 import type { CustomTool } from "../../../extensibility/custom-tools/types";
+import { t } from "../../../i18n";
 import { type LoadMCPConfigsOptions, loadAllMCPConfigs } from "../../../mcp/config";
 import type { MCPLoadResult, MCPManager } from "../../../mcp/manager";
 import type { McpConnectionStatusEvent } from "../../../mcp/startup-events";
@@ -273,18 +274,27 @@ export function snapshotMcpRuntime(
 export function formatMcpListHint(snapshot: MCPRuntimeSnapshot): string {
 	switch (snapshot.health) {
 		case "inactive":
-			return "inactive";
+			return t("plugin.mcp.hintInactive");
 		case "connecting":
-			return "connecting…";
+			return t("plugin.mcp.hintConnecting");
 		case "disconnected":
-			return "unavailable";
+			return t("plugin.mcp.hintUnavailable");
 		case "connected": {
-			const parts = [`${snapshot.tools.length} tool${snapshot.tools.length === 1 ? "" : "s"}`];
-			if (snapshot.resources.length > 0) {
-				parts.push(`${snapshot.resources.length} resource${snapshot.resources.length === 1 ? "" : "s"}`);
+			const tools = snapshot.tools.length;
+			const resources = snapshot.resources.length;
+			const prompts = snapshot.prompts.length;
+			const parts = [tools === 1 ? t("plugin.mcp.toolCountOne") : t("plugin.mcp.toolCountOther", { count: tools })];
+			if (resources > 0) {
+				parts.push(
+					resources === 1
+						? t("plugin.mcp.resourceCountOne")
+						: t("plugin.mcp.resourceCountOther", { count: resources }),
+				);
 			}
-			if (snapshot.prompts.length > 0) {
-				parts.push(`${snapshot.prompts.length} prompt${snapshot.prompts.length === 1 ? "" : "s"}`);
+			if (prompts > 0) {
+				parts.push(
+					prompts === 1 ? t("plugin.mcp.promptCountOne") : t("plugin.mcp.promptCountOther", { count: prompts }),
+				);
 			}
 			return parts.join(" · ");
 		}
@@ -294,13 +304,13 @@ export function formatMcpListHint(snapshot: MCPRuntimeSnapshot): string {
 export function formatMcpHealthLabel(health: MCPConnectionHealth): string {
 	switch (health) {
 		case "connected":
-			return "Connected";
+			return t("plugin.mcp.healthConnected");
 		case "connecting":
-			return "Connecting";
+			return t("plugin.mcp.healthConnecting");
 		case "disconnected":
-			return "Not connected";
+			return t("plugin.mcp.healthDisconnected");
 		case "inactive":
-			return "Inactive";
+			return t("plugin.mcp.healthInactive");
 	}
 }
 

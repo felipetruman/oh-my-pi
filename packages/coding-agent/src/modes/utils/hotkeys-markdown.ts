@@ -1,18 +1,45 @@
-import { canonicalKeyId } from "@oh-my-pi/pi-tui";
+import { canonicalKeyId, type Keybinding, type KeybindingDefinitions } from "@oh-my-pi/pi-tui";
 import {
 	type AppKeybinding,
 	formatKeyHints,
+	KEYBINDINGS,
 	type KeybindingsManager,
 	keyHintPlatform,
 	modifierLabel,
 } from "../../config/keybindings";
+import { EN_US, t, type TranslationKey } from "../../i18n";
 
 export interface HotkeysMarkdownBindings {
 	keybindings: Pick<KeybindingsManager, "getDisplayString" | "getKeys" | "matchesCanonical">;
 }
 
+/** Widened view of the registry: descriptions are looked up by a runtime id, not a literal. */
+const DEFINITIONS: KeybindingDefinitions = KEYBINDINGS;
+
 function appKey(bindings: HotkeysMarkdownBindings, action: AppKeybinding): string {
-	return bindings.keybindings.getDisplayString(action) || "Disabled";
+	return bindings.keybindings.getDisplayString(action) || t("common.disabled");
+}
+
+/**
+ * Localized description for a keybinding action.
+ *
+ * `hotkeys.key.<actionId>` wins when this package translates the action;
+ * otherwise the English description the keybinding registry ships with is used,
+ * so an action id this table does not cover still renders its row. The
+ * translations live here rather than in `KEYBINDINGS`/`TUI_KEYBINDINGS` to keep
+ * the dependency one-way: the coding agent knows pi-tui, never the reverse.
+ *
+ * The cast is guarded by the `in` check — a key the table lacks never reaches `t`.
+ */
+export function describeKeybinding(action: Keybinding): string {
+	const key = `hotkeys.key.${action}` as TranslationKey;
+	if (key in EN_US) return t(key);
+	return DEFINITIONS[action]?.description ?? action;
+}
+
+/** One `| key | action |` row for an action, both cells resolved from the active language. */
+function appRow(bindings: HotkeysMarkdownBindings, action: AppKeybinding): string {
+	return `| \`${appKey(bindings, action)}\` | ${describeKeybinding(action)} |`;
 }
 
 export function buildHotkeysMarkdown(bindings: HotkeysMarkdownBindings): string {
@@ -34,65 +61,70 @@ export function buildHotkeysMarkdown(bindings: HotkeysMarkdownBindings): string 
 	);
 	const exitRows: string[] = [];
 	if (deletingExitKeys.length > 0) {
-		exitRows.push(
-			`| \`${formatKeyHints(deletingExitKeys)}\` | Delete char forward (with draft) / exit (empty prompt) |`,
-		);
+		exitRows.push(`| \`${formatKeyHints(deletingExitKeys)}\` | ${t("hotkeys.row.exitOrDeleteForward")} |`);
 	}
 	// An unbound exit action still gets its row, mirroring the `Disabled` hint every other row uses.
 	if (quittingExitKeys.length > 0 || deletingExitKeys.length === 0) {
-		exitRows.push(`| \`${formatKeyHints(quittingExitKeys) || "Disabled"}\` | Exit |`);
+		exitRows.push(`| \`${formatKeyHints(quittingExitKeys) || t("common.disabled")}\` | ${t("hotkeys.row.exit")} |`);
 	}
+	const header = `| ${t("hotkeys.columnKey")} | ${t("hotkeys.columnAction")} |`;
+	const hubKeys = `\`${appKey(bindings, "app.agents.hub")}\` / \`${appKey(bindings, "app.session.observe")}\``;
+	const hubGesture = t("hotkeys.doubleTapEmptyEditor", { key: "`←`" });
 	return [
-		"**Navigation**",
-		"| Key | Action |",
+		t("hotkeys.sectionNavigation"),
+		header,
 		"|-----|--------|",
-		"| `Arrow keys` | Move cursor / browse history (Up when empty) |",
-		`| \`${alt}+Left/Right\` | Move by word |`,
-		isMac ? `| \`Ctrl+A\` / \`Home\` / \`${cmd}+Left\` | Start of line |` : "| `Ctrl+A` / `Home` | Start of line |",
-		isMac ? `| \`Ctrl+E\` / \`End\` / \`${cmd}+Right\` | End of line |` : "| `Ctrl+E` / `End` | End of line |",
+		`| \`${t("hotkeys.row.arrowKeys")}\` | ${t("hotkeys.row.moveCursorOrHistory")} |`,
+		`| \`${alt}+Left/Right\` | ${t("hotkeys.row.moveByWord")} |`,
+		isMac
+			? `| \`Ctrl+A\` / \`Home\` / \`${cmd}+Left\` | ${t("hotkeys.row.lineStart")} |`
+			: `| \`Ctrl+A\` / \`Home\` | ${t("hotkeys.row.lineStart")} |`,
+		isMac
+			? `| \`Ctrl+E\` / \`End\` / \`${cmd}+Right\` | ${t("hotkeys.row.lineEnd")} |`
+			: `| \`Ctrl+E\` / \`End\` | ${t("hotkeys.row.lineEnd")} |`,
 		"",
-		"**Editing**",
-		"| Key | Action |",
+		t("hotkeys.sectionEditing"),
+		header,
 		"|-----|--------|",
-		"| `Enter` | Send message |",
-		`| \`Shift+Enter\` / \`${alt}+Enter\` | New line |`,
-		`| \`Ctrl+W\` / \`${alt}+Backspace\` | Delete word backwards |`,
-		"| `Ctrl+U` | Delete to start of line |",
-		"| `Ctrl+K` | Delete to end of line |",
-		`| \`${appKey(bindings, "app.clipboard.copyLine")}\` | Copy current line |`,
-		`| \`${appKey(bindings, "app.clipboard.copyPrompt")}\` | Copy whole prompt |`,
+		`| \`Enter\` | ${t("hotkeys.row.sendMessage")} |`,
+		`| \`Shift+Enter\` / \`${alt}+Enter\` | ${t("hotkeys.row.newLine")} |`,
+		`| \`Ctrl+W\` / \`${alt}+Backspace\` | ${t("hotkeys.row.deleteWordBackwards")} |`,
+		`| \`Ctrl+U\` | ${t("hotkeys.row.deleteToLineStart")} |`,
+		`| \`Ctrl+K\` | ${t("hotkeys.row.deleteToLineEnd")} |`,
+		appRow(bindings, "app.clipboard.copyLine"),
+		appRow(bindings, "app.clipboard.copyPrompt"),
 		"",
-		"**Other**",
-		"| Key | Action |",
+		t("hotkeys.sectionOther"),
+		header,
 		"|-----|--------|",
-		"| `Tab` | Path completion / accept autocomplete |",
-		`| \`${appKey(bindings, "app.interrupt")}\` | Cancel autocomplete / interrupt active work |`,
-		`| \`${appKey(bindings, "app.clear")}\` | Clear editor (first) / exit (second) |`,
+		`| \`Tab\` | ${t("hotkeys.row.tabCompletion")} |`,
+		appRow(bindings, "app.interrupt"),
+		appRow(bindings, "app.clear"),
 		...exitRows,
-		`| \`${appKey(bindings, "app.suspend")}\` | Suspend to background |`,
-		`| \`${appKey(bindings, "app.display.reset")}\` | Reset terminal display |`,
-		`| \`${appKey(bindings, "app.thinking.cycle")}\` | Cycle thinking level |`,
-		`| \`${appKey(bindings, "app.model.cycleForward")}\` | Cycle role models (slow/default/smol) |`,
-		`| \`${appKey(bindings, "app.model.cycleBackward")}\` | Cycle role models (backward) |`,
-		`| \`${appKey(bindings, "app.model.selectTemporary")}\` | Select model (temporary) |`,
-		`| \`${appKey(bindings, "app.model.select")}\` | Select model (set roles) |`,
-		`| \`${appKey(bindings, "app.plan.toggle")}\` | Toggle plan mode |`,
-		`| \`${appKey(bindings, "app.history.search")}\` | Search prompt history |`,
-		`| \`${appKey(bindings, "app.tools.expand")}\` | Toggle tool output expansion |`,
-		`| \`${appKey(bindings, "app.tools.toggleVisibility")}\` | Toggle tool activity visibility |`,
-		`| \`${appKey(bindings, "app.thinking.toggle")}\` | Toggle thinking block visibility |`,
-		`| \`${appKey(bindings, "app.editor.external")}\` | Edit message in external editor |`,
-		`| \`${appKey(bindings, "app.retry")}\` | Retry last failed assistant turn |`,
-		`| \`${appKey(bindings, "app.clipboard.pasteImage")}\` | Paste image or text from clipboard |`,
-		"| Hold `Space` | Speech-to-text (push-to-talk): hold to record, release to transcribe |",
-		`| \`${appKey(bindings, "app.live.toggle")}\` | Start/stop live voice mode (/live) |`,
-		`| \`${appKey(bindings, "app.agents.hub")}\` / \`${appKey(bindings, "app.session.observe")}\` / double-tap \`←\` (empty editor) | Open the agent hub |`,
-		"| `#<number>` | GitHub issue/PR reference (e.g. `#3164` → `pr://`/`issue://`) |",
-		"| `#` / `#<text>` | Prompt actions (copy / undo / move cursor) |",
-		"| `/` | Slash commands |",
-		"| `!` | Run bash command |",
-		"| `!!` | Run bash command (excluded from context) |",
-		"| `$` | Run Python in shared kernel |",
-		"| `$$` | Run Python (excluded from context) |",
+		appRow(bindings, "app.suspend"),
+		appRow(bindings, "app.display.reset"),
+		appRow(bindings, "app.thinking.cycle"),
+		appRow(bindings, "app.model.cycleForward"),
+		appRow(bindings, "app.model.cycleBackward"),
+		appRow(bindings, "app.model.selectTemporary"),
+		appRow(bindings, "app.model.select"),
+		appRow(bindings, "app.plan.toggle"),
+		appRow(bindings, "app.history.search"),
+		appRow(bindings, "app.tools.expand"),
+		appRow(bindings, "app.tools.toggleVisibility"),
+		appRow(bindings, "app.thinking.toggle"),
+		appRow(bindings, "app.editor.external"),
+		appRow(bindings, "app.retry"),
+		appRow(bindings, "app.clipboard.pasteImage"),
+		`| ${t("hotkeys.hold")} \`Space\` | ${t("hotkeys.row.speechToText")} |`,
+		appRow(bindings, "app.live.toggle"),
+		`| ${hubKeys} / ${hubGesture} | ${describeKeybinding("app.agents.hub")} |`,
+		`| \`#<number>\` | ${t("hotkeys.row.githubReference")} |`,
+		`| \`#\` / \`#<text>\` | ${t("hotkeys.row.promptActions")} |`,
+		`| \`/\` | ${t("hotkeys.row.slashCommands")} |`,
+		`| \`!\` | ${t("hotkeys.row.bash")} |`,
+		`| \`!!\` | ${t("hotkeys.row.bashNoContext")} |`,
+		`| \`$\` | ${t("hotkeys.row.python")} |`,
+		`| \`$$\` | ${t("hotkeys.row.pythonNoContext")} |`,
 	].join("\n");
 }

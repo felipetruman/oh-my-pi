@@ -7,6 +7,7 @@
  */
 import { type Component, matchesKey, padding, truncateToWidth, visibleWidth } from "@oh-my-pi/pi-tui";
 import { isForeignUserProvider, isProviderEnabled, isUserSourceEnabled } from "../../../discovery";
+import { t } from "../../../i18n";
 import { theme } from "../../../modes/theme/theme";
 import { matchesSelectDown, matchesSelectUp } from "../../utils/keybinding-matchers";
 import { clampSelection, contentRowWidth, renderScrollableList, searchableChar } from "../selector-helpers";
@@ -144,14 +145,15 @@ export class ExtensionList implements Component {
 		this.#visibleCount = 0;
 
 		// Search bar
-		const searchPrefix = theme.fg("muted", "Search: ");
-		const searchText = this.#searchQuery || (this.#focused ? "" : theme.fg("dim", "type to filter"));
+		const searchPrefix = theme.fg("muted", `${t("common.search")}: `);
+		const placeholder = this.#focused ? "" : theme.fg("dim", t("plugin.inventory.searchPlaceholder"));
+		const searchText = this.#searchQuery || placeholder;
 		const cursor = this.#focused ? theme.fg("accent", "_") : "";
 		lines.push(searchPrefix + searchText + cursor);
 		lines.push("");
 
 		if (this.#listItems.length === 0) {
-			lines.push(theme.fg("muted", "  No extensions found for this provider."));
+			lines.push(theme.fg("muted", `  ${t("plugin.inventory.emptyProvider")}`));
 			return lines;
 		}
 
@@ -207,8 +209,8 @@ export class ExtensionList implements Component {
 		const checkbox = item.enabled
 			? theme.fg("success", theme.checkbox.checked)
 			: theme.fg("dim", theme.checkbox.unchecked);
-		const label = `Load ~/ ${item.providerName} config`;
-		const badge = theme.fg("muted", "(opt-in; project config always loads)");
+		const label = t("plugin.inventory.loadUserConfig", { provider: item.providerName });
+		const badge = theme.fg("muted", t("plugin.inventory.userSourceBadge"));
 
 		let line = `${checkbox} ${theme.icon.folder} ${label}  ${badge}`;
 
@@ -227,8 +229,8 @@ export class ExtensionList implements Component {
 			? theme.fg("success", theme.checkbox.checked)
 			: theme.fg("dim", theme.checkbox.unchecked);
 		const icon = theme.icon.package;
-		const label = `Enable ${item.providerName}`;
-		const badge = theme.fg("warning", "(Master Switch)");
+		const label = t("plugin.inventory.enableProvider", { provider: item.providerName });
+		const badge = theme.fg("warning", t("plugin.inventory.masterSwitchBadge"));
 
 		let line = `${checkbox} ${icon} ${label}  ${badge}`;
 
@@ -462,25 +464,25 @@ export class ExtensionList implements Component {
 	#getKindLabel(kind: ExtensionKind): string {
 		switch (kind) {
 			case "extension-module":
-				return "Extension Modules";
+				return t("plugin.kind.extensionModule");
 			case "skill":
-				return "Skills";
+				return t("plugin.kind.skill");
 			case "tool":
-				return "Tools";
+				return t("plugin.kind.tool");
 			case "slash-command":
-				return "Commands";
+				return t("plugin.kind.slashCommandShort");
 			case "rule":
-				return "Rules";
+				return t("plugin.kind.rule");
 			case "mcp":
-				return "MCP Servers";
+				return t("plugin.kind.mcp");
 			case "hook":
-				return "Hooks";
+				return t("plugin.kind.hook");
 			case "prompt":
-				return "Prompts";
+				return t("plugin.kind.prompt");
 			case "context-file":
-				return "Context";
+				return t("plugin.kind.contextFileShort");
 			case "instruction":
-				return "Instructions";
+				return t("plugin.kind.instruction");
 			default:
 				return kind;
 		}

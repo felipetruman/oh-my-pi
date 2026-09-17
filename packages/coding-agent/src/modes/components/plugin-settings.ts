@@ -30,6 +30,7 @@ import {
 	parsePluginId,
 } from "../../extensibility/plugins/marketplace";
 import type { InstalledPlugin, PluginSettingSchema } from "../../extensibility/plugins/types";
+import { t } from "../../i18n";
 import { getSelectListTheme, getSettingsListTheme, theme } from "../../modes/theme/theme";
 import { shortenPath } from "../../tools/render-utils";
 import { OverlayPanel } from "./overlay-box";
@@ -90,17 +91,18 @@ async function buildPluginConfigItems(
 	if (!schemaSettings) return [];
 
 	const settings = await manager.getPluginSettings(plugin.name);
+	const notSet = t("plugin.config.notSet");
 	const items: SettingItem[] = [];
 	for (const key in schemaSettings) {
 		const schema = schemaSettings[key];
 		const currentValue = settings[key] ?? schema.default;
-		const displayValue = schema.secret && currentValue ? "••••••••" : String(currentValue ?? "(not set)");
+		const displayValue = schema.secret && currentValue ? "••••••••" : String(currentValue ?? notSet);
 
 		if (schema.type === "boolean") {
 			items.push({
 				id: `config:${key}`,
 				label: `  ${key}`,
-				description: schema.description || `Configure ${key}`,
+				description: schema.description || t("plugin.config.configureKey", { key }),
 				currentValue: currentValue ? "true" : "false",
 				values: ["true", "false"],
 			});
@@ -108,12 +110,12 @@ async function buildPluginConfigItems(
 			items.push({
 				id: `config:${key}`,
 				label: `  ${key}`,
-				description: schema.description || `Configure ${key}`,
+				description: schema.description || t("plugin.config.configureKey", { key }),
 				currentValue: String(currentValue ?? schema.default ?? ""),
 				submenu: (cv, done) =>
 					new ConfigEnumSubmenu(
 						key,
-						schema.description || `Select value for ${key}`,
+						schema.description || t("plugin.config.selectValueFor", { key }),
 						schema.values,
 						cv,
 						value => {
@@ -127,13 +129,13 @@ async function buildPluginConfigItems(
 			items.push({
 				id: `config:${key}`,
 				label: `  ${key}`,
-				description: schema.description || `Configure ${key}`,
+				description: schema.description || t("plugin.config.configureKey", { key }),
 				currentValue: displayValue,
 				submenu: (cv, done) =>
 					new ConfigInputSubmenu(
 						key,
 						schema,
-						cv === "(not set)" ? "" : cv,
+						cv === notSet ? "" : cv,
 						value => {
 							const parsed = schema.type === "number" ? Number(value) : value;
 							onConfigChange(key, parsed);
@@ -177,12 +179,10 @@ export class PluginListComponent extends OverlayPanel {
 		this.addChild(new Spacer(1));
 
 		if (entries.length === 0) {
-			this.addChild(new Text(theme.fg("muted", "No plugins installed"), 0, 0));
+			this.addChild(new Text(theme.fg("muted", t("plugin.list.empty")), 0, 0));
 			this.addChild(new Spacer(1));
-			this.addChild(new Text(theme.fg("dim", "Install npm plugins:        omp plugin install <package>"), 0, 0));
-			this.addChild(
-				new Text(theme.fg("dim", "Install marketplace plugins: omp plugin install <name>@<marketplace>"), 0, 0),
-			);
+			this.addChild(new Text(theme.fg("dim", t("plugin.list.installNpm")), 0, 0));
+			this.addChild(new Text(theme.fg("dim", t("plugin.list.installMarketplace")), 0, 0));
 			this.addChild(new Spacer(1));
 
 			// Empty list still handles Escape so the user can leave the panel.
@@ -212,7 +212,7 @@ export class PluginListComponent extends OverlayPanel {
 
 		this.addChild(this.#selectList);
 		this.addChild(new Spacer(1));
-		this.addChild(new Text(theme.fg("dim", "Enter to configure · Esc to go back"), 0, 0));
+		this.addChild(new Text(theme.fg("dim", t("plugin.list.hintConfigure")), 0, 0));
 	}
 
 	#renderItem(entry: PluginListEntry): SelectItem {
@@ -228,7 +228,8 @@ export class PluginListComponent extends OverlayPanel {
 
 			let details = `${kindBadge} ${theme.sep.dot} v${p.version}`;
 			if (featureCount > 0) {
-				details += ` ${theme.sep.dot} ${enabledCount}/${featureCount} features`;
+				const features = t("plugin.list.featureCount", { enabled: enabledCount, total: featureCount });
+				details += ` ${theme.sep.dot} ${features}`;
 			}
 
 			return {
@@ -247,7 +248,7 @@ export class PluginListComponent extends OverlayPanel {
 
 		let details = `${kindBadge} ${scopeTag} ${theme.sep.dot} v${version}`;
 		if (summary.shadowedBy) {
-			details += ` ${theme.sep.dot} shadowed by ${summary.shadowedBy}`;
+			details += ` ${theme.sep.dot} ${t("plugin.list.shadowedBy", { name: summary.shadowedBy })}`;
 		}
 
 		return {
@@ -309,8 +310,8 @@ export class PluginDetailComponent extends OverlayPanel {
 		// Enable/disable toggle
 		items.push({
 			id: "__enabled__",
-			label: "Enabled",
-			description: "Enable or disable this plugin",
+			label: t("common.enabled"),
+			description: t("plugin.detail.enableToggle"),
 			currentValue: plugin.enabled ? "true" : "false",
 			values: ["true", "false"],
 		});
@@ -330,7 +331,7 @@ export class PluginDetailComponent extends OverlayPanel {
 				items.push({
 					id: `feature:${featName}`,
 					label: `  ${featName}`,
-					description: feat.description || `Enable ${featName} feature`,
+					description: feat.description || t("plugin.detail.enableFeature", { feature: featName }),
 					currentValue: isEnabled ? "true" : "false",
 					values: ["true", "false"],
 				});
@@ -371,7 +372,7 @@ export class PluginDetailComponent extends OverlayPanel {
 
 		this.addChild(this.#settingsList);
 		this.addChild(new Spacer(1));
-		this.addChild(new Text(theme.fg("dim", "Enter to edit · Esc to go back"), 0, 0));
+		this.addChild(new Text(theme.fg("dim", t("plugin.detail.hintEdit")), 0, 0));
 	}
 
 	handleInput(data: string): void {
@@ -438,15 +439,17 @@ export class MarketplacePluginDetailComponent extends OverlayPanel {
 		const entry = plugin.entries[0];
 		this.title = plugin.id;
 		const subtitleParts = [`[${plugin.scope}]`];
-		if (plugin.shadowedBy) subtitleParts.push(`${theme.status.shadowed} shadowed by ${plugin.shadowedBy}`);
+		if (plugin.shadowedBy) {
+			subtitleParts.push(`${theme.status.shadowed} ${t("plugin.list.shadowedBy", { name: plugin.shadowedBy })}`);
+		}
 		this.addChild(new Text(theme.fg("muted", subtitleParts.join(" ")), 0, 0));
 		this.addChild(new Spacer(1));
 
 		const items: SettingItem[] = [
 			{
 				id: "__enabled__",
-				label: "Enabled",
-				description: "Enable or disable this marketplace plugin",
+				label: t("common.enabled"),
+				description: t("plugin.detail.enableMarketplaceToggle"),
 				currentValue: marketplaceEnabled(plugin) ? "true" : "false",
 				values: ["true", "false"],
 			},
@@ -476,23 +479,22 @@ export class MarketplacePluginDetailComponent extends OverlayPanel {
 
 		this.addChild(this.#settingsList);
 		this.addChild(new Spacer(1));
-		this.addChild(new Text(theme.fg("dim", `version       ${entry?.version ?? "(unknown)"}`), 0, 0));
-		this.addChild(new Text(theme.fg("dim", `scope         ${plugin.scope}`), 0, 0));
-		this.addChild(
-			new Text(
-				theme.fg("dim", `install path  ${entry?.installPath ? shortenPath(entry.installPath) : "(unknown)"}`),
-				0,
-				0,
-			),
-		);
-		this.addChild(new Text(theme.fg("dim", `installed at  ${entry?.installedAt ?? "(unknown)"}`), 0, 0));
-		this.addChild(new Text(theme.fg("dim", `last updated  ${entry?.lastUpdated ?? "(unknown)"}`), 0, 0));
+		const unknown = t("plugin.detail.unknown");
+		const installPath = entry?.installPath ? shortenPath(entry.installPath) : unknown;
+		const version = entry?.version ?? unknown;
+		const installedAt = entry?.installedAt ?? unknown;
+		const lastUpdated = entry?.lastUpdated ?? unknown;
+		this.addChild(new Text(theme.fg("dim", `${t("plugin.detail.labelVersion")}${version}`), 0, 0));
+		this.addChild(new Text(theme.fg("dim", `${t("plugin.detail.labelScope")}${plugin.scope}`), 0, 0));
+		this.addChild(new Text(theme.fg("dim", `${t("plugin.detail.labelInstallPath")}${installPath}`), 0, 0));
+		this.addChild(new Text(theme.fg("dim", `${t("plugin.detail.labelInstalledAt")}${installedAt}`), 0, 0));
+		this.addChild(new Text(theme.fg("dim", `${t("plugin.detail.labelLastUpdated")}${lastUpdated}`), 0, 0));
 		if (entry?.gitCommitSha) {
-			this.addChild(new Text(theme.fg("dim", `git sha       ${entry.gitCommitSha}`), 0, 0));
+			this.addChild(new Text(theme.fg("dim", `${t("plugin.detail.labelGitSha")}${entry.gitCommitSha}`), 0, 0));
 		}
 
 		this.addChild(new Spacer(1));
-		this.addChild(new Text(theme.fg("dim", "Enter to edit · Esc to go back"), 0, 0));
+		this.addChild(new Text(theme.fg("dim", t("plugin.detail.hintEdit")), 0, 0));
 	}
 
 	handleInput(data: string): void {
@@ -538,7 +540,7 @@ class ConfigEnumSubmenu extends OverlayPanel {
 
 		this.addChild(this.#selectList);
 		this.addChild(new Spacer(1));
-		this.addChild(new Text(theme.fg("dim", "Enter to select · Esc to cancel"), 0, 0));
+		this.addChild(new Text(theme.fg("dim", t("plugin.config.hintSelect")), 0, 0));
 	}
 
 	handleInput(data: string): void {
@@ -566,7 +568,7 @@ class ConfigInputSubmenu extends OverlayPanel {
 		}
 
 		// Type hint
-		let hint = `Type: ${schema.type}`;
+		let hint = t("plugin.config.typeHint", { type: schema.type });
 		if (schema.type === "number") {
 			const numSchema = schema as { min?: number; max?: number };
 			if (numSchema.min !== undefined || numSchema.max !== undefined) {
@@ -594,7 +596,7 @@ class ConfigInputSubmenu extends OverlayPanel {
 
 		this.addChild(this.#input);
 		this.addChild(new Spacer(1));
-		this.addChild(new Text(theme.fg("dim", "Enter to save · Esc to cancel"), 0, 0));
+		this.addChild(new Text(theme.fg("dim", t("plugin.config.hintSave")), 0, 0));
 	}
 
 	handleInput(data: string): void {

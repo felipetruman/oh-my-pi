@@ -27,6 +27,7 @@ import {
 import { getMCPConfigPath, logger } from "@oh-my-pi/pi-utils";
 import { Settings } from "../../../config/settings";
 import type { CustomTool } from "../../../extensibility/custom-tools/types";
+import { t } from "../../../i18n";
 import { setMcpServerEnabled } from "../../../mcp/config-writer";
 import type { MCPManager } from "../../../mcp/manager";
 import { MCP_CONNECTION_STATUS_EVENT_CHANNEL } from "../../../mcp/startup-events";
@@ -68,7 +69,7 @@ export interface ExtensionDashboardOptions {
 }
 
 function extFooter(): string {
-	return ` ↑/↓: navigate · Space: toggle · ←/→: provider · PgUp/PgDn: inspector · ${expandKeyHint()}: expand · Esc: close`;
+	return t("plugin.dashboard.footer", { key: expandKeyHint() });
 }
 
 /**
@@ -210,7 +211,7 @@ export class ExtensionDashboard implements Component {
 		const bodyLines = this.#body.render(innerWidth);
 
 		const out: string[] = [];
-		out.push(topBorder(width, "Extension Control Center"));
+		out.push(topBorder(width, t("plugin.dashboard.title")));
 		this.#tabRowStart = out.length;
 		this.#tabRowCount = tabLines.length;
 		for (const line of tabLines) out.push(row(line, width));
