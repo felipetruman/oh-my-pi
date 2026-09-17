@@ -1,4 +1,5 @@
 import { type SelectItem, SelectList, type SgrMouseEvent } from "@oh-my-pi/pi-tui";
+import { t } from "../../i18n";
 import { getSelectListTheme } from "../../modes/theme/theme";
 import type { SessionPinAccount } from "../../slash-commands/helpers/session-pin";
 import { OverlayPanel } from "./overlay-box";
@@ -16,7 +17,7 @@ export class SessionAccountSelectorComponent extends OverlayPanel {
 		onSelect: (account: SessionPinAccount) => void,
 		onCancel: () => void,
 	) {
-		super(`Select a ${providerName} account for this session`);
+		super(t("nav.account.pinTitle", { provider: providerName }));
 		const accountsByValue = new Map<string, SessionPinAccount>();
 		const items: SelectItem[] = accounts.map(account => {
 			const value = String(account.credentialId);
@@ -24,7 +25,7 @@ export class SessionAccountSelectorComponent extends OverlayPanel {
 			return {
 				value,
 				label: account.label,
-				description: account.active ? "active for this session" : undefined,
+				description: account.active ? t("nav.account.activeForSession") : undefined,
 			};
 		});
 

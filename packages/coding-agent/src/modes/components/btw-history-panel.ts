@@ -10,6 +10,7 @@ import {
 	visibleWidth,
 	wrapTextWithAnsi,
 } from "@oh-my-pi/pi-tui";
+import { t, type TranslationKey } from "../../i18n";
 import {
 	type BtwHistoryRecord,
 	type BtwHistoryTurn,
@@ -57,12 +58,12 @@ interface RenderedTurn {
 	width: number;
 }
 
-const STATUS: Record<BtwHistoryRecord["status"], { label: string; color: ThemeColor }> = {
-	running: { label: "Running", color: "accent" },
-	complete: { label: "Complete", color: "success" },
-	cancelled: { label: "Cancelled", color: "warning" },
-	error: { label: "Error", color: "error" },
-	interrupted: { label: "Interrupted", color: "warning" },
+const STATUS: Record<BtwHistoryRecord["status"], { key: TranslationKey; color: ThemeColor }> = {
+	running: { key: "nav.btw.statusRunning", color: "accent" },
+	complete: { key: "nav.btw.statusComplete", color: "success" },
+	cancelled: { key: "nav.btw.statusCancelled", color: "warning" },
+	error: { key: "nav.btw.statusError", color: "error" },
+	interrupted: { key: "nav.btw.statusInterrupted", color: "warning" },
 };
 
 /** Session-local side questions. Selecting or copying never promotes them into chat. */
@@ -189,7 +190,7 @@ export class BtwHistoryPanel implements Component, Focusable {
 
 	#openComposer(record: BtwHistoryRecord): void {
 		const input = new Input();
-		input.prompt = theme.fg("accent", "Follow up: ");
+		input.prompt = theme.fg("accent", t("nav.btw.followUpPrompt"));
 		const composer: FollowUpComposer = { recordId: record.id, input, abortController: new AbortController() };
 		input.onEscape = () => {
 			composer.abortController.abort();
@@ -207,16 +208,16 @@ export class BtwHistoryPanel implements Component, Focusable {
 		if (this.#followUpPending || this.#composer !== composer) return;
 		const question = value.trim();
 		if (!question) {
-			composer.notice = "Enter a follow-up question.";
+			composer.notice = t("nav.btw.followUpEmpty");
 			return;
 		}
 		const record = this.#records.find(record => record.id === composer.recordId);
 		if (!record || !this.#canFollowUp(record)) {
-			composer.notice = "A BTW request is busy. Try again when it finishes.";
+			composer.notice = t("nav.btw.followUpBusy");
 			return;
 		}
 		this.#followUpPending = true;
-		composer.notice = "Starting follow-up…";
+		composer.notice = t("nav.btw.followUpStarting");
 		this.#options.requestRender();
 		try {
 			const accepted = await this.#options.onFollowUp!(record, question, composer.abortController.signal);
@@ -227,11 +228,11 @@ export class BtwHistoryPanel implements Component, Focusable {
 				this.#focus = "answer";
 				this.#followLatest = true;
 			} else {
-				composer.notice = "Follow-up was not started. Your draft is kept; Enter to retry.";
+				composer.notice = t("nav.btw.followUpNotStarted");
 			}
 		} catch {
 			if (this.#composer === composer) {
-				composer.notice = "Could not start the follow-up. Your draft is kept; Enter to retry.";
+				composer.notice = t("nav.btw.followUpFailed");
 			}
 		} finally {
 			this.#followUpPending = false;
@@ -303,9 +304,7 @@ export class BtwHistoryPanel implements Component, Focusable {
 		const rowSpan = width < 36 && height >= 2 ? 2 : 1;
 		this.#listHeight = Math.max(1, Math.floor(height / rowSpan));
 		if (this.#records.length === 0) {
-			return new Text(theme.fg("muted", "No side questions yet.\n\nUse /btw QUESTION to start one."), 0, 0)
-				.render(width)
-				.slice(0, height);
+			return new Text(theme.fg("muted", t("nav.btw.emptyList")), 0, 0).render(width).slice(0, height);
 		}
 		const selectedIndex = this.#selectedIndex();
 		const selection = clampSelection(selectedIndex, this.#listScroll, this.#records.length, this.#listHeight);
@@ -322,7 +321,7 @@ export class BtwHistoryPanel implements Component, Focusable {
 			const status = STATUS[getBtwLatestTurn(record).status];
 			const cursor = selected ? theme.fg(this.#focus === "list" ? "accent" : "muted", theme.nav.cursor) : " ";
 			const time = theme.fg("dim", this.#timeFormat.format(record.createdAt));
-			const badge = theme.fg(status.color, status.label);
+			const badge = theme.fg(status.color, t(status.key));
 			const prefix = `${cursor} ${time} ${badge} `;
 			const question = sanitizeDisplayLine(record.question);
 			const snippet = truncateToWidth(
@@ -363,26 +362,26 @@ export class BtwHistoryPanel implements Component, Focusable {
 		const status = STATUS[turn.status];
 		const lines = [
 			...wrapTextWithAnsi(
-				theme.fg(status.color, `${status.label} · ${this.#dateFormat.format(turn.createdAt)}`),
+				theme.fg(status.color, `${t(status.key)} · ${this.#dateFormat.format(turn.createdAt)}`),
 				width,
 			),
 			"",
-			theme.bold(theme.fg("accent", "Question")),
+			theme.bold(theme.fg("accent", t("nav.btw.question"))),
 			...question.render(width),
 			"",
-			theme.bold(theme.fg("accent", "Answer")),
+			theme.bold(theme.fg("accent", t("nav.btw.answer"))),
 		];
 		if (turn.answer.trim()) lines.push(...answer.render(width));
 		else
 			lines.push(
 				...wrapTextWithAnsi(
-					theme.fg("dim", turn.status === "running" ? "Waiting for response…" : "No answer text."),
+					theme.fg("dim", turn.status === "running" ? t("nav.btw.waiting") : t("nav.btw.noAnswerText")),
 					width,
 				),
 			);
 		if (turn.error) lines.push("", ...wrapTextWithAnsi(theme.fg("error", sanitizeErrorLine(turn.error)), width));
 		if (turn.status === "interrupted")
-			lines.push("", ...wrapTextWithAnsi(theme.fg("muted", "Not resumed in this view."), width));
+			lines.push("", ...wrapTextWithAnsi(theme.fg("muted", t("nav.btw.notResumed")), width));
 		return {
 			turn: {
 				question: turn.question,
@@ -406,7 +405,7 @@ export class BtwHistoryPanel implements Component, Focusable {
 			const inner = Math.max(1, width - 1);
 			const lines: string[] = [];
 			if (record && this.#isCopied(record)) {
-				lines.push(...wrapTextWithAnsi(theme.fg("success", "✓ Copied to clipboard"), inner), "");
+				lines.push(...wrapTextWithAnsi(theme.fg("success", t("nav.btw.copiedDetail")), inner), "");
 			}
 			if (record) {
 				const turns = getBtwTurns(record);
@@ -418,9 +417,7 @@ export class BtwHistoryPanel implements Component, Focusable {
 				}
 				this.#turns.length = turns.length;
 			} else {
-				lines.push(
-					...wrapTextWithAnsi(theme.fg("muted", "No side questions yet. Use /btw QUESTION to start one."), inner),
-				);
+				lines.push(...wrapTextWithAnsi(theme.fg("muted", t("nav.btw.emptyDetail")), inner));
 			}
 			this.#detailRecord = record;
 			this.#detail.setLines(lines);
@@ -432,7 +429,8 @@ export class BtwHistoryPanel implements Component, Focusable {
 	}
 
 	#focusLabel(focus: "list" | "answer"): string {
-		const label = focus === "list" ? `History (${this.#records.length})` : "Details";
+		const label =
+			focus === "list" ? t("nav.btw.historyPane", { count: this.#records.length }) : t("nav.btw.detailsPane");
 		return this.#focus === focus
 			? theme.bold(theme.fg("accent", `${theme.nav.cursor} ${label}`))
 			: theme.fg("muted", `  ${label}`);
@@ -450,16 +448,19 @@ export class BtwHistoryPanel implements Component, Focusable {
 		const composer = this.#composer;
 		const latest = record ? getBtwLatestTurn(record) : undefined;
 		const actions = composer
-			? [rawKeyHint("Enter", this.#followUpPending ? "starting…" : "send"), rawKeyHint("Esc", "cancel")]
+			? [
+					rawKeyHint("Enter", this.#followUpPending ? t("nav.btw.hintStarting") : t("nav.btw.hintSend")),
+					rawKeyHint("Esc", t("selector.hint.cancel")),
+				]
 			: [
-					rawKeyHint("Esc", latest?.status === "running" ? "cancel" : "close"),
-					rawKeyHint("Tab/Ctrl+/", "switch pane"),
+					rawKeyHint("Esc", latest?.status === "running" ? t("selector.hint.cancel") : t("nav.btw.hintClose")),
+					rawKeyHint("Tab/Ctrl+/", t("nav.btw.hintSwitchPane")),
 				];
 		if (!composer) {
-			if (record && this.#canFollowUp(record)) actions.push(rawKeyHint("f/Enter", "follow up"));
+			if (record && this.#canFollowUp(record)) actions.push(rawKeyHint("f/Enter", t("nav.btw.hintFollowUp")));
 			if (record && getBtwCopyText(record) !== undefined) {
-				if (this.#isCopied(record)) actions.push(theme.fg("success", "✓ copied · c to copy again"));
-				else actions.push(rawKeyHint("c", inner < 40 ? "copy" : "copy answer"));
+				if (this.#isCopied(record)) actions.push(theme.fg("success", t("nav.btw.copiedHint")));
+				else actions.push(rawKeyHint("c", inner < 40 ? t("nav.btw.hintCopy") : t("nav.btw.hintCopyAnswer")));
 			}
 		}
 		const actionLines = wrapTextWithAnsi(actions.join(" · "), inner).slice(0, framed ? 2 : 1);
@@ -469,7 +470,10 @@ export class BtwHistoryPanel implements Component, Focusable {
 			const availableRows = Math.max(1, height - chrome - 1);
 			if (availableRows >= 2) {
 				composerLines.push(
-					theme.fg("dim", truncateToWidth(`Topic: ${sanitizeDisplayLine(record?.question ?? "")}`, inner)),
+					theme.fg(
+						"dim",
+						truncateToWidth(t("nav.btw.topic", { question: sanitizeDisplayLine(record?.question ?? "") }), inner),
+					),
 				);
 			}
 			if (composer.notice && availableRows >= 3) {
@@ -500,7 +504,7 @@ export class BtwHistoryPanel implements Component, Focusable {
 		}
 		const lines: string[] = [];
 		if (framed) {
-			lines.push(topBorder(width, "BTW history"));
+			lines.push(topBorder(width, t("nav.btw.title")));
 			lines.push(
 				wide
 					? splitRow(this.#focusLabel("list"), this.#focusLabel("answer"), width, listWidth)
@@ -524,7 +528,7 @@ export class BtwHistoryPanel implements Component, Focusable {
 					row(
 						rawKeyHint(
 							`${editorKey("tui.select.up")}/${editorKey("tui.select.down")}`,
-							this.#focus === "list" ? "select" : "scroll",
+							this.#focus === "list" ? t("selector.hint.select") : t("nav.btw.hintScroll"),
 						),
 						width,
 					),
