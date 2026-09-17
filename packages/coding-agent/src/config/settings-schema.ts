@@ -1183,6 +1183,26 @@ export const SETTINGS_SCHEMA = {
 		description:
 			"Maximum number of inline images kept as live terminal graphics (default 8). Older images fall back to a text placeholder via a full redraw once the limit is exceeded. Set to 0 to keep every image (no limit).",
 	},
+	/**
+	 * Interface language.
+	 *
+	 * `values` are the ids the setting accepts and that a config file may hold;
+	 * `ui.options` are the ones the panel offers. They are deliberately not the
+	 * same list: an id is reserved here as soon as the runtime can resolve it,
+	 * and only becomes selectable once a translation ships for it.
+	 */
+	"display.locale": {
+		type: "enum",
+		values: ["en-US", "pt-BR"] as const,
+		default: "en-US",
+		ui: {
+			tab: "appearance",
+			group: "Display",
+			label: "Interface Language",
+			description: "Language used by the OMP terminal interface",
+			options: [{ value: "en-US", label: "English", description: "Canonical interface language" }],
+		},
+	},
 	"tui.resizeScrollback": {
 		type: "enum",
 		values: ["append", "rebuild", "preserve"] as const,
