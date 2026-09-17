@@ -6,10 +6,11 @@ import { removeWithRetries } from "@oh-my-pi/pi-utils";
  * Below the threshold (or when disabled) the editor keeps its default collapse-to-`[Paste]`-marker behavior.
  */
 
-import { afterEach, describe, expect, it, vi } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
+import { resetLocaleForTest, setLocale } from "@oh-my-pi/pi-coding-agent/i18n";
 import { CustomEditor } from "@oh-my-pi/pi-coding-agent/modes/components/custom-editor";
 import { InputController } from "@oh-my-pi/pi-coding-agent/modes/controllers/input-controller";
 import { getEditorTheme } from "@oh-my-pi/pi-coding-agent/modes/theme/theme";
@@ -17,7 +18,10 @@ import type { InteractiveModeContext } from "@oh-my-pi/pi-coding-agent/modes/typ
 
 function createContext(options?: {
 	threshold?: number;
-	choice?: string;
+	/** Position of the option to pick. The stub answers with whatever label the
+	 *  controller offered at that index, exactly as the real selector does, so a
+	 *  test stays valid in any interface language. */
+	choiceIndex?: number;
 	artifactsDir?: string;
 	editor?: InteractiveModeContext["editor"];
 }) {
@@ -27,7 +31,13 @@ function createContext(options?: {
 	const requestRender = vi.fn();
 	const showStatus = vi.fn();
 	const showError = vi.fn();
-	const showHookSelector = vi.fn(async (_title: string, _options: unknown, _dialog?: unknown) => options?.choice);
+	const showHookSelector = vi.fn(async (_title: string, selectOptions: unknown, _dialog?: unknown) => {
+		if (options?.choiceIndex === undefined) return undefined;
+		const offered = selectOptions as ReadonlyArray<string | { label: string }>;
+		const picked = offered[options.choiceIndex];
+		if (picked === undefined) throw new Error(`no option at index ${options.choiceIndex}`);
+		return typeof picked === "string" ? picked : picked.label;
+	});
 	const ctx = {
 		editor:
 			options?.editor ??
@@ -52,7 +62,13 @@ function createContext(options?: {
 
 afterEach(() => {
 	vi.restoreAllMocks();
+	resetLocaleForTest();
 });
+
+/** Menu positions, in the order `presentLargePasteMenu` offers them. */
+const WRAPPED_BLOCK = 0;
+const LOCAL_FILE = 1;
+const INLINE = 2;
 
 describe("InputController.handleLargePaste gate", () => {
 	it("declines and skips the menu below the threshold", () => {
@@ -121,22 +137,19 @@ describe("InputController.handleLargePaste gate", () => {
 	});
 });
 
-describe("InputController.presentLargePasteMenu actions", () => {
-	it("offers the requested actions in order", async () => {
-		const { controller, spies } = createContext({ choice: undefined });
-
-		await controller.presentLargePasteMenu("payload", 1);
-
-		const options = spies.showHookSelector.mock.calls[0][1] as Array<{ label: string }>;
-		expect(options.map(option => option.label)).toEqual([
-			"Attach as a wrapped block",
-			"Attach as local file",
-			"Paste inline",
-		]);
+/**
+ * The selector resolves to the *label* the user picked, so a caller that compares
+ * that label to an English literal silently falls through in any other language.
+ * Running the same positions under both interface languages is the guard: a
+ * literal comparison reaching `presentLargePasteMenu` makes these fail loudly.
+ */
+describe.each(["en-US", "pt-BR"] as const)("InputController.presentLargePasteMenu actions (%s)", locale => {
+	beforeEach(() => {
+		setLocale(locale);
 	});
 
 	it("wraps the paste in attachment XML collapsed to a marker", async () => {
-		const { controller, spies } = createContext({ choice: "Attach as a wrapped block" });
+		const { controller, spies } = createContext({ choiceIndex: WRAPPED_BLOCK });
 
 		await controller.presentLargePasteMenu("payload", 1);
 
@@ -145,7 +158,7 @@ describe("InputController.presentLargePasteMenu actions", () => {
 
 	it("recalls and submits the wrapped expansion rather than only the chip preview", async () => {
 		const editor = new CustomEditor(getEditorTheme());
-		const { controller } = createContext({ choice: "Attach as a wrapped block", editor });
+		const { controller } = createContext({ choiceIndex: WRAPPED_BLOCK, editor });
 		await controller.presentLargePasteMenu("line one\nline two", 2);
 		editor.clearDraftForRecall();
 		editor.addToHistory("intervening prompt");
@@ -158,7 +171,7 @@ describe("InputController.presentLargePasteMenu actions", () => {
 	});
 
 	it("pastes inline when explicitly selected", async () => {
-		const { controller, spies } = createContext({ choice: "Paste inline" });
+		const { controller, spies } = createContext({ choiceIndex: INLINE });
 
 		await controller.presentLargePasteMenu("payload", 1);
 
@@ -166,19 +179,20 @@ describe("InputController.presentLargePasteMenu actions", () => {
 	});
 
 	it("pastes inline when the menu is cancelled, so the content is not lost", async () => {
-		const { controller, spies } = createContext({ choice: undefined });
+		const { controller, spies } = createContext({});
 
 		await controller.presentLargePasteMenu("payload", 1);
 
 		expect(spies.insertTextAttachment).toHaveBeenCalledWith("payload");
 	});
 
-	it("titles the menu with the paste's line count", async () => {
-		const { controller, spies } = createContext({ choice: undefined });
+	it("carries the paste's line count into the menu title", async () => {
+		const { controller, spies } = createContext({});
 
 		await controller.presentLargePasteMenu("payload", 123);
 
-		expect(spies.showHookSelector.mock.calls[0][0]).toBe("Pasted 123 lines");
+		// The count is interpolated, not the wording: the title is translated copy.
+		expect(spies.showHookSelector.mock.calls[0][0]).toContain("123");
 	});
 });
 
@@ -192,7 +206,7 @@ describe("InputController.presentLargePasteMenu file attachment", () => {
 
 	it("saves the paste to local:// and inserts a clean local://paste reference", async () => {
 		dir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-paste-test-"));
-		const { controller, spies } = createContext({ choice: "Attach as local file", artifactsDir: dir });
+		const { controller, spies } = createContext({ choiceIndex: LOCAL_FILE, artifactsDir: dir });
 
 		await controller.presentLargePasteMenu("line one\nline two", 2);
 
@@ -206,7 +220,7 @@ describe("InputController.presentLargePasteMenu file attachment", () => {
 	it("does not overwrite an existing paste file", async () => {
 		dir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-paste-test-"));
 		await Bun.write(path.join(dir, "local", "paste-1.md"), "previous");
-		const { controller, spies } = createContext({ choice: "Attach as local file", artifactsDir: dir });
+		const { controller, spies } = createContext({ choiceIndex: LOCAL_FILE, artifactsDir: dir });
 
 		await controller.presentLargePasteMenu("fresh", 1);
 
@@ -218,7 +232,7 @@ describe("InputController.presentLargePasteMenu file attachment", () => {
 	it("recalls a paste-file reference without deleting or overwriting its content", async () => {
 		dir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-paste-recall-"));
 		const editor = new CustomEditor(getEditorTheme());
-		const { controller } = createContext({ choice: "Attach as local file", artifactsDir: dir, editor });
+		const { controller } = createContext({ choiceIndex: LOCAL_FILE, artifactsDir: dir, editor });
 		await controller.presentLargePasteMenu("first file\nsecond line", 2);
 		editor.clearDraftForRecall();
 		await controller.presentLargePasteMenu("another paste", 1);
