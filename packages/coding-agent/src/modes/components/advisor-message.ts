@@ -1,5 +1,6 @@
 import { type Component, visibleWidth } from "@oh-my-pi/pi-tui";
 import type { AdvisorMessageDetails, AdvisorSeverity } from "../../advisor";
+import { t } from "../../i18n";
 import {
 	createCachedComponent,
 	formatBadge,
@@ -54,8 +55,19 @@ export function createAdvisorMessageCard(
 ): Component {
 	const notes = details?.notes ?? [];
 	const blockers = notes.filter(note => note.severity === "blocker").length;
-	const meta: string[] = [`${notes.length} ${notes.length === 1 ? "note" : "notes"}`];
-	if (blockers > 0) meta.push(uiTheme.fg("error", `${blockers} blocker${blockers === 1 ? "" : "s"}`));
+	const meta: string[] = [
+		t(notes.length === 1 ? "agentView.advisor.notesOne" : "agentView.advisor.notesOther", { count: notes.length }),
+	];
+	if (blockers > 0) {
+		meta.push(
+			uiTheme.fg(
+				"error",
+				t(blockers === 1 ? "agentView.advisor.blockersOne" : "agentView.advisor.blockersOther", {
+					count: blockers,
+				}),
+			),
+		);
+	}
 
 	return createCachedComponent(
 		getExpanded,
@@ -100,7 +112,14 @@ export function createAdvisorMessageCard(
 			const hidden = notes.length - shown.length;
 			if (hidden > 0) {
 				const rail = uiTheme.fg("dim", railGlyph);
-				lines.push(`  ${rail} ${uiTheme.fg("dim", `… +${hidden} more ${hidden === 1 ? "note" : "notes"}`)}`);
+				lines.push(
+					`  ${rail} ${uiTheme.fg(
+						"dim",
+						t(hidden === 1 ? "agentView.advisor.moreNotesOne" : "agentView.advisor.moreNotesOther", {
+							count: hidden,
+						}),
+					)}`,
+				);
 			}
 			return lines.map(line => truncateToWidth(line, width, Ellipsis.Unicode));
 		},

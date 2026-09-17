@@ -36,6 +36,7 @@ import {
 import type { KeyId } from "../../config/keybindings";
 import type { Settings } from "../../config/settings";
 import type { MessageRenderer } from "../../extensibility/extensions/types";
+import { t, type TranslationKey } from "../../i18n";
 import { IrcBus } from "../../irc/bus";
 import { AgentLifecycleManager } from "../../registry/agent-lifecycle";
 import { type AgentRef, AgentRegistry, type AgentStatus, MAIN_AGENT_ID } from "../../registry/agent-registry";
@@ -102,6 +103,22 @@ const AGE_TICK_MS = 5_000;
 const DATA_CHANGE_RENDER_COALESCE_MS = 100;
 /** Double-tap window for the table's left-left "close hub" gesture. */
 const LEFT_TAP_WINDOW_MS = 500;
+
+/** On-screen lifecycle words for the roster counts and the detail header. */
+const STATUS_LABEL_KEYS: Record<AgentStatus, TranslationKey> = {
+	running: "hub.status.running",
+	idle: "hub.status.idle",
+	parked: "hub.status.parked",
+	aborted: "hub.status.aborted",
+};
+
+/** On-screen word for the activity pane's `f` filter cycle. */
+const ACTIVITY_FILTER_LABEL_KEYS: Record<ActivityFilter, TranslationKey> = {
+	all: "hub.activity.filter.all",
+	errors: "hub.activity.filter.errors",
+	responses: "hub.activity.filter.responses",
+	tools: "hub.activity.filter.tools",
+};
 
 function activityGlyph(row: AgentActivityRow): string {
 	if (row.status === "error") return theme.fg("error", theme.status.error);
@@ -683,7 +700,7 @@ export class AgentHubOverlayComponent extends Container implements SelectListMou
 			this.#section === section
 				? theme.bg("selectedBg", theme.bold(theme.fg("accent", ` ${label} `)))
 				: theme.fg("muted", ` ${label} `);
-		return `${tab("agents", "1 Agents")}${theme.fg("dim", theme.sep.dot)}${tab("activity", "2 Activity")}`;
+		return `${tab("agents", t("hub.tab.agents"))}${theme.fg("dim", theme.sep.dot)}${tab("activity", t("hub.tab.activity"))}`;
 	}
 
 	#renderActivityTable(width: number, termHeight: number): string[] {
@@ -694,26 +711,25 @@ export class AgentHubOverlayComponent extends Container implements SelectListMou
 		const selectedAgent = this.#rows[this.#selectedRow]?.id;
 		const scope =
 			this.#activityScope === "all"
-				? "all agents"
+				? t("hub.activity.scopeAll")
 				: this.#activityScope === "agent"
-					? (selectedAgent ?? "selected agent")
-					: `${selectedAgent ?? "selected"} subtree`;
+					? (selectedAgent ?? t("hub.activity.scopeSelected"))
+					: t("hub.activity.scopeSubtree", {
+							agent: selectedAgent ?? t("hub.activity.scopeSelectedFallback"),
+						});
 		const search = this.#activitySearchEditing
-			? theme.fg("accent", `search: ${this.#activitySearch}▌`)
+			? theme.fg("accent", t("hub.activity.searchLabel", { query: `${this.#activitySearch}▌` }))
 			: this.#activitySearch
-				? `search: ${this.#activitySearch}`
-				: "search: —";
-		body.push(
-			theme.fg(
-				"dim",
-				`${scope}${theme.sep.dot}${this.#activityFilter}${theme.sep.dot}${this.#activityFollow ? "following" : "paused"}${theme.sep.dot}${search}`,
-			),
-		);
+				? t("hub.activity.searchLabel", { query: this.#activitySearch })
+				: t("hub.activity.searchEmpty");
+		const filter = t(ACTIVITY_FILTER_LABEL_KEYS[this.#activityFilter]);
+		const follow = this.#activityFollow ? t("hub.activity.following") : t("hub.activity.paused");
+		body.push(theme.fg("dim", `${scope}${theme.sep.dot}${filter}${theme.sep.dot}${follow}${theme.sep.dot}${search}`));
 		if (contentRows >= 8) body.push("");
 
 		const budget = Math.max(0, contentRows - body.length);
 		if (this.#activityRows.length === 0 && budget > 0) {
-			body.push(theme.fg("muted", this.#activitySearch ? "No matching activity" : "No agent activity recorded yet"));
+			body.push(theme.fg("muted", this.#activitySearch ? t("hub.activity.noMatches") : t("hub.activity.empty")));
 		} else if (budget > 0) {
 			const selected = Math.min(this.#selectedActivityRow, this.#activityRows.length - 1);
 			const start = this.#activityFollow
@@ -721,7 +737,7 @@ export class AgentHubOverlayComponent extends Container implements SelectListMou
 				: Math.max(0, Math.min(selected - Math.floor(budget / 2), this.#activityRows.length - budget));
 			const end = Math.min(this.#activityRows.length, start + budget);
 			if (start > 0) {
-				body.push(theme.fg("dim", `… ${start} earlier`));
+				body.push(theme.fg("dim", t("hub.activity.earlier", { count: start })));
 			}
 			for (let index = start + Number(start > 0); index < end; index++) {
 				this.#hitRows[1 + body.length] = index;
@@ -730,18 +746,10 @@ export class AgentHubOverlayComponent extends Container implements SelectListMou
 		}
 		while (body.length < contentRows) body.push("");
 
-		const lines = [topBorder(width, "Agent Hub")];
+		const lines = [topBorder(width, t("hub.title"))];
 		for (const line of body.slice(0, contentRows)) lines.push(row(line, width));
 		lines.push(divider(width));
-		lines.push(
-			row(
-				theme.fg(
-					"dim",
-					"1:agents  j/k:select  Enter:transcript  Space:follow  f:filter  s:scope  /:search  Esc:close",
-				),
-				width,
-			),
-		);
+		lines.push(row(theme.fg("dim", t("hub.activity.footer")), width));
 		lines.push(bottomBorder(width));
 		return lines;
 	}
@@ -777,7 +785,7 @@ export class AgentHubOverlayComponent extends Container implements SelectListMou
 			const detailWidth = splitBodyWidth(width, split);
 			const roster = this.#renderRosterPanel(split, contentRows, observedById);
 			const details = this.#renderDetailPanel(selected, detailWidth, contentRows, observedById);
-			lines.push(topBorderSplit(width, "Agent Hub", split));
+			lines.push(topBorderSplit(width, t("hub.title"), split));
 			for (let i = 0; i < contentRows; i++) {
 				const hit = roster.hitRows[i];
 				if (hit !== undefined) this.#hitRows[lines.length] = hit;
@@ -792,11 +800,11 @@ export class AgentHubOverlayComponent extends Container implements SelectListMou
 		const innerWidth = Math.max(1, width - 4);
 		if (this.#narrowDetailsOpen && selected) {
 			const details = this.#renderDetailPanel(selected, innerWidth, contentRows, observedById);
-			lines.push(topBorder(width, `Agent Hub · ${selected.id}`));
+			lines.push(topBorder(width, `${t("hub.title")} · ${selected.id}`));
 			for (const detail of details) lines.push(row(detail, width));
 		} else {
 			const roster = this.#renderRosterPanel(innerWidth, contentRows, observedById);
-			lines.push(topBorder(width, "Agent Hub"));
+			lines.push(topBorder(width, t("hub.title")));
 			for (let i = 0; i < contentRows; i++) {
 				const hit = roster.hitRows[i];
 				if (hit !== undefined) this.#hitRows[lines.length] = hit;
@@ -816,22 +824,16 @@ export class AgentHubOverlayComponent extends Container implements SelectListMou
 	}
 
 	#footer(showingNarrowDetails: boolean, availableWidth: number): string {
-		const nextView = this.#viewMode === "roster" ? "by parent" : "flat";
+		const nextView = this.#viewMode === "roster" ? t("hub.view.byParent") : t("hub.view.flat");
 		const filter =
 			this.#agentFilter.length > 0 ? `/${this.#agentFilter}${this.#agentFilterEditing ? "▌" : ""}  ·  ` : "";
 		if (showingNarrowDetails) {
-			return theme.fg(
-				"dim",
-				`${filter}1:agents  2:activity  Tab:roster  PgUp/PgDn:scroll  Enter:open  t:${nextView}  Esc:roster`,
-			);
+			return theme.fg("dim", t("hub.footer.narrowDetails", { filter, nextView }));
 		}
 		if (availableWidth < 96) {
-			return theme.fg("dim", `${filter}j/k:select  Enter:open  t:${nextView}  Tab:details  r/x:manage  Esc:close`);
+			return theme.fg("dim", t("hub.footer.compact", { filter, nextView }));
 		}
-		return theme.fg(
-			"dim",
-			`${filter}1:agents  2:activity  j/k/wheel:select  PgUp/PgDn:details  Enter/click:open  t:${nextView}  r:revive  x:kill  Esc:close`,
-		);
+		return theme.fg("dim", t("hub.footer.full", { filter, nextView }));
 	}
 
 	#renderRosterPanel(width: number, rows: number, observedById: ReadonlyMap<string, ObservableSession>): RosterRender {
@@ -847,14 +849,14 @@ export class AgentHubOverlayComponent extends Container implements SelectListMou
 		if (this.#rows.length === 0) {
 			if (this.#loadingPersistedSubagents) {
 				if (budget > 0) {
-					lines.push(`${statusGlyph("running")} ${theme.fg("accent", "Loading saved agents…")}`);
+					lines.push(`${statusGlyph("running")} ${theme.fg("accent", t("hub.loadingSaved"))}`);
 					hitRows.push(undefined);
 				}
 			} else {
 				const emptyState = [
-					`${theme.fg("muted", theme.status.shadowed)} ${theme.bold("No agents in this session")}`,
-					theme.fg("dim", "Finished, parked, and killed subagents remain with the session that created them."),
-					theme.fg("dim", "Resume that session with omp-dev --continue, or spawn a task here."),
+					`${theme.fg("muted", theme.status.shadowed)} ${theme.bold(t("hub.empty.title"))}`,
+					theme.fg("dim", t("hub.empty.line1")),
+					theme.fg("dim", t("hub.empty.line2")),
 				];
 				for (const line of emptyState.slice(0, budget)) {
 					lines.push(line);
@@ -954,12 +956,12 @@ export class AgentHubOverlayComponent extends Container implements SelectListMou
 		const showTopOverflow = start > 0 && used < budget;
 		const showBottomOverflow = end < this.#rows.length && used + Number(showTopOverflow) < budget;
 		if (showTopOverflow) {
-			lines.push(theme.fg("dim", `… ${start} more`));
+			lines.push(theme.fg("dim", t("hub.more", { count: start })));
 			hitRows.push(undefined);
 		}
 		for (let i = start; i < end; i++) appendEntry(i);
 		if (showBottomOverflow) {
-			lines.push(theme.fg("dim", `… ${this.#rows.length - end} more`));
+			lines.push(theme.fg("dim", t("hub.more", { count: this.#rows.length - end })));
 			hitRows.push(undefined);
 		}
 		return { lines, hitRows };
@@ -970,17 +972,23 @@ export class AgentHubOverlayComponent extends Container implements SelectListMou
 		const inactive = (label: string): string => theme.fg("muted", ` ${label} `);
 		const projection =
 			this.#viewMode === "roster"
-				? `${active("Flat")}${theme.fg("dim", "/")}${inactive("By parent")}`
-				: `${inactive("Flat")}${theme.fg("dim", "/")}${active("By parent")}`;
+				? `${active(t("hub.roster.flat"))}${theme.fg("dim", "/")}${inactive(t("hub.roster.byParent"))}`
+				: `${inactive(t("hub.roster.flat"))}${theme.fg("dim", "/")}${active(t("hub.roster.byParent"))}`;
 		const counts = this.#statusSummary();
-		const header = `${theme.bold("Roster")}${theme.fg("dim", theme.sep.dot)}${projection}${counts ? theme.fg("dim", theme.sep.dot) + counts : ""}`;
+		const header = `${theme.bold(t("hub.roster.title"))}${theme.fg("dim", theme.sep.dot)}${projection}${counts ? theme.fg("dim", theme.sep.dot) + counts : ""}`;
 		const lines = wrapTextWithAnsi(header, Math.max(1, width));
 
 		const metrics = this.#aggregate;
 		if (metrics.reportedAgents === 0) {
 			lines.push(
 				...wrapTextWithAnsi(
-					theme.fg("dim", `Usage —${theme.sep.dot}0/${this.#rows.length} measured`),
+					theme.fg(
+						"dim",
+						`${t("hub.usage.none")}${theme.sep.dot}${t("hub.usage.measured", {
+							count: 0,
+							total: this.#rows.length,
+						})}`,
+					),
 					Math.max(1, width),
 				),
 			);
@@ -989,12 +997,15 @@ export class AgentHubOverlayComponent extends Container implements SelectListMou
 		const activeTime = formatMetricDuration(metrics);
 		const usage = [
 			theme.fg("statusLineCost", formatCost(metrics.cost)),
-			theme.fg("dim", activeTime ? `${activeTime} agent time` : "agent time —"),
-			theme.fg("dim", `${formatNumber(metrics.requests)} req`),
-			theme.fg("dim", `${formatNumber(metrics.tools)} tools`),
-			theme.fg("dim", `${formatNumber(metrics.tokens)} tok`),
-			theme.fg("dim", `${metrics.activeDurationAgents}/${metrics.reportedAgents} timed`),
-			theme.fg("dim", `${metrics.reportedAgents}/${this.#rows.length} measured`),
+			theme.fg(
+				"dim",
+				activeTime ? t("hub.usage.agentTime", { duration: activeTime }) : t("hub.usage.agentTimeNone"),
+			),
+			theme.fg("dim", t("hub.usage.requests", { count: formatNumber(metrics.requests) })),
+			theme.fg("dim", t("hub.usage.tools", { count: formatNumber(metrics.tools) })),
+			theme.fg("dim", t("hub.usage.tokens", { count: formatNumber(metrics.tokens) })),
+			theme.fg("dim", t("hub.usage.timed", { count: metrics.activeDurationAgents, total: metrics.reportedAgents })),
+			theme.fg("dim", t("hub.usage.measured", { count: metrics.reportedAgents, total: this.#rows.length })),
 		].join(theme.fg("dim", theme.sep.dot));
 		lines.push(...wrapTextWithAnsi(usage, Math.max(1, width)));
 		return lines;
@@ -1004,7 +1015,10 @@ export class AgentHubOverlayComponent extends Container implements SelectListMou
 		const parts: string[] = [];
 		for (const status of ["running", "idle", "parked", "aborted"] as const) {
 			const count = this.#statusCounts[status];
-			if (count > 0) parts.push(`${statusGlyph(status)} ${statusText(status, `${count} ${status}`)}`);
+			if (count > 0) {
+				const label = t("hub.statusCount", { count, status: t(STATUS_LABEL_KEYS[status]) });
+				parts.push(`${statusGlyph(status)} ${statusText(status, label)}`);
+			}
 		}
 		return parts.join(theme.sep.dot);
 	}
@@ -1032,7 +1046,9 @@ export class AgentHubOverlayComponent extends Container implements SelectListMou
 		rows: number,
 		_observedById: ReadonlyMap<string, ObservableSession>,
 	): string[] {
-		if (!ref) return [theme.fg("dim", "Select an agent to inspect"), ...Array.from({ length: rows - 1 }, () => "")];
+		if (!ref) {
+			return [theme.fg("dim", t("hub.detail.selectAgent")), ...Array.from({ length: rows - 1 }, () => "")];
+		}
 		const observed = this.#observableFor(ref.id);
 		const progress = observed?.progress;
 		const metrics = this.#metricsFor(ref, observed);
@@ -1053,10 +1069,10 @@ export class AgentHubOverlayComponent extends Container implements SelectListMou
 		if (ref.displayName && ref.displayName !== ref.id) add(theme.fg("dim", sanitizeDisplayText(ref.id)));
 		const lifecycleDetails = [
 			metrics ? formatMetricDuration(metrics) : undefined,
-			`active ${formatAge(Math.max(1, Math.round((Date.now() - ref.lastActivity) / 1000)))}`,
+			t("hub.detail.active", { age: formatAge(Math.max(1, Math.round((Date.now() - ref.lastActivity) / 1000))) }),
 		].filter(Boolean);
 		add(
-			`${statusText(ref.status, ref.status)}${theme.fg("dim", `${theme.sep.dot}${lifecycleDetails.join(theme.sep.dot)}`)}`,
+			`${statusText(ref.status, t(STATUS_LABEL_KEYS[ref.status]))}${theme.fg("dim", `${theme.sep.dot}${lifecycleDetails.join(theme.sep.dot)}`)}`,
 		);
 		const modelDetails: string[] = [];
 		const modelRole = progress?.modelRole ?? ref.history?.modelRole;
@@ -1067,7 +1083,7 @@ export class AgentHubOverlayComponent extends Container implements SelectListMou
 
 		const task = observed?.description ?? progress?.task ?? ref.activity;
 		if (task) {
-			section("Task");
+			section(t("hub.detail.section.task"));
 			addWrapped(task);
 		}
 
@@ -1075,50 +1091,67 @@ export class AgentHubOverlayComponent extends Container implements SelectListMou
 			? `${progress.currentTool}${progress.currentToolArgs ? ` · ${progress.currentToolArgs}` : ""}`
 			: (progress?.lastIntent ?? ref.activity);
 		if (current) {
-			section("Current");
+			section(t("hub.detail.section.current"));
 			addWrapped(current);
 			if (progress?.retryState) {
-				add(theme.fg("warning", `retry ${progress.retryState.attempt}/${progress.retryState.maxAttempts}`));
+				add(
+					theme.fg(
+						"warning",
+						t("hub.detail.retry", {
+							attempt: progress.retryState.attempt,
+							max: progress.retryState.maxAttempts,
+						}),
+					),
+				);
 			}
 		}
 
-		section("Usage", 1);
+		section(t("hub.detail.section.usage"), 1);
 		if (metrics) {
 			addWrapped(formatMetrics(metrics), 3);
 			if (metrics.contextTokens !== undefined && metrics.contextWindow) {
 				add(contextGauge(metrics.contextTokens, metrics.contextWindow));
 			}
 		} else {
-			add(theme.fg("dim", "usage —"));
+			add(theme.fg("dim", t("hub.detail.usageNone")));
 		}
 
-		section("Lineage");
+		section(t("hub.detail.section.lineage"));
 		add(
-			`Spawned by ${sanitizeDisplayText(ref.parentId ?? MAIN_AGENT_ID)}${children.length > 0 ? ` · ${children.length} children` : ""}`,
+			`${t("hub.detail.spawnedBy", { parent: sanitizeDisplayText(ref.parentId ?? MAIN_AGENT_ID) })}${
+				children.length > 0 ? t("hub.detail.children", { count: children.length }) : ""
+			}`,
 		);
 		if (children.length > 0) add(theme.fg("dim", formatChildIds(children, width)));
-		add(theme.fg("dim", `Registered ${formatLocalDateTimeWithOffset(new Date(ref.createdAt))}`));
+		add(
+			theme.fg(
+				"dim",
+				t("hub.detail.registered", { timestamp: formatLocalDateTimeWithOffset(new Date(ref.createdAt)) }),
+			),
+		);
 
-		section("Changes");
+		section(t("hub.detail.section.changes"));
 		add(
 			theme.fg(
 				"dim",
 				ref.kind === "advisor" || ref.history?.readOnly
-					? "Read-only · 0 LoC"
-					: "Shared workspace · per-agent LoC not attributable",
+					? t("hub.detail.readOnlyChanges")
+					: t("hub.detail.sharedWorkspace"),
 			),
 		);
 		const artifacts = ref.history;
-		if (artifacts?.outputPath) addWrapped(`Output ${shortenPath(artifacts.outputPath)}`);
-		if (artifacts?.patchPath) addWrapped(`Patch ${shortenPath(artifacts.patchPath)}`);
-		for (const nestedPath of artifacts?.nestedPatchPaths ?? []) addWrapped(`Nested patch ${shortenPath(nestedPath)}`);
-		if (artifacts?.branchName) addWrapped(`Worktree branch ${artifacts.branchName}`);
+		if (artifacts?.outputPath) addWrapped(t("hub.detail.output", { path: shortenPath(artifacts.outputPath) }));
+		if (artifacts?.patchPath) addWrapped(t("hub.detail.patch", { path: shortenPath(artifacts.patchPath) }));
+		for (const nestedPath of artifacts?.nestedPatchPaths ?? []) {
+			addWrapped(t("hub.detail.nestedPatch", { path: shortenPath(nestedPath) }));
+		}
+		if (artifacts?.branchName) addWrapped(t("hub.detail.worktreeBranch", { branch: artifacts.branchName }));
 
 		if (lines.length < rows) add();
-		if (lines.length < rows) add(theme.bold(theme.fg("accent", "Recent activity")));
+		if (lines.length < rows) add(theme.bold(theme.fg("accent", t("hub.detail.recentActivity"))));
 		const activityBudget = Math.max(0, rows - lines.length);
 		const activity = this.#activity.recent(ref.id, activityBudget);
-		if (activity.length === 0 && activityBudget > 0) add(theme.fg("muted", "No response or tool activity yet"));
+		if (activity.length === 0 && activityBudget > 0) add(theme.fg("muted", t("hub.detail.noActivity")));
 		else {
 			for (const event of activity) {
 				const title = sanitizeLine(event.kind === "tool" ? (event.toolName ?? event.title) : event.title, width);
@@ -1160,7 +1193,7 @@ export class AgentHubOverlayComponent extends Container implements SelectListMou
 			fields.push(theme.fg("dim", `↳ ${sanitizeDisplayText(ref.parentId)}`));
 		}
 		if (ref.kind === "advisor") {
-			fields.push(theme.fg("warning", "read-only"));
+			fields.push(theme.fg("warning", t("hub.entry.readOnly")));
 		}
 		const unread = this.#irc.unreadCount(ref.id);
 		if (unread > 0) {
@@ -1207,7 +1240,7 @@ export class AgentHubOverlayComponent extends Container implements SelectListMou
 			entry.push(`${indent}${theme.fg("muted", truncateToWidth(sanitizeLine(task, detailWidth), detailWidth))}`);
 		}
 		const age = formatAge(Math.max(1, Math.round((Date.now() - ref.lastActivity) / 1000)));
-		const metadata = metrics ? formatMetricColumns(metrics, age) : `usage ${theme.sep.dot} ${age}`;
+		const metadata = metrics ? formatMetricColumns(metrics, age) : `${t("hub.entry.usage")} ${theme.sep.dot} ${age}`;
 		entry.push(`${metadataPrefix}${theme.fg("dim", metadata)}`);
 		if (!hovered) return entry;
 		return entry.map(lineRow => {

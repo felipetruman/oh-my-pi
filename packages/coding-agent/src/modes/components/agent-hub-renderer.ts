@@ -3,6 +3,7 @@ import { Ellipsis, padding, visibleWidth } from "@oh-my-pi/pi-tui";
 import { formatDuration, formatNumber, sanitizeText } from "@oh-my-pi/pi-utils";
 import { getRoleInfo } from "../../config/model-roles";
 import type { Settings } from "../../config/settings";
+import { t } from "../../i18n";
 import { type AgentRef, MAIN_AGENT_ID } from "../../registry/agent-registry";
 import { parseThinkingLevel } from "../../thinking";
 import { replaceTabs, TRUNCATE_LENGTHS, truncateToWidth } from "../../tools/render-utils";
@@ -124,8 +125,13 @@ export function modelBadge(ref: AgentRef, observed: ObservableSession | undefine
 export function formatMetricDuration(metrics: AgentMetrics): string | undefined {
 	const durationMs = metricNumber(metrics.durationMs);
 	if (durationMs <= 0) return undefined;
-	const label = metrics.durationKind === "active" ? "active" : metrics.durationKind === "span" ? "span" : "duration";
-	return `${formatDuration(durationMs)} ${label}`;
+	const key =
+		metrics.durationKind === "active"
+			? "agentView.metric.durationActive"
+			: metrics.durationKind === "span"
+				? "agentView.metric.durationSpan"
+				: "agentView.metric.duration";
+	return t(key, { duration: formatDuration(durationMs) });
 }
 
 export function formatCost(cost: number): string {
@@ -138,10 +144,10 @@ export function formatCost(cost: number): string {
 export function formatMetrics(metrics: AgentMetrics): string {
 	return [
 		formatCost(metrics.cost),
-		formatMetricDuration(metrics) ?? "time —",
-		`${formatNumber(metrics.requests)} req`,
-		`${formatNumber(metrics.tools)} tools`,
-		`${formatNumber(metrics.tokens)} tok`,
+		formatMetricDuration(metrics) ?? t("agentView.metric.timeNone"),
+		t("agentView.metric.requests", { count: formatNumber(metrics.requests) }),
+		t("agentView.metric.tools", { count: formatNumber(metrics.tools) }),
+		t("agentView.metric.tokens", { count: formatNumber(metrics.tokens) }),
 	].join(theme.sep.dot);
 }
 
@@ -153,9 +159,9 @@ export function formatMetricColumns(metrics: AgentMetrics, age: string): string 
 	return [
 		cost + padding(8 - visibleWidth(cost)),
 		alignRightCell(formatMetricDuration(metrics) ?? "—", 13),
-		alignRightCell(`${formatNumber(metrics.requests)} req`, 8),
-		alignRightCell(`${formatNumber(metrics.tools)} tools`, 9),
-		alignRightCell(`${formatNumber(metrics.tokens)} tok`, 8),
+		alignRightCell(t("agentView.metric.requests", { count: formatNumber(metrics.requests) }), 8),
+		alignRightCell(t("agentView.metric.tools", { count: formatNumber(metrics.tools) }), 9),
+		alignRightCell(t("agentView.metric.tokens", { count: formatNumber(metrics.tokens) }), 8),
 		alignRightCell(age, 8),
 	].join(" ");
 }
