@@ -25,6 +25,8 @@ import {
 	type SubmenuOption,
 	TAB_GROUPS,
 } from "../../config/settings-schema";
+import { onLocaleChange } from "../../i18n";
+import { localizedOptionText, localizedSettingText, settingOptionOverrides } from "../../i18n/settings-metadata";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // UI Definition Types
@@ -174,10 +176,20 @@ const CONDITIONS: Record<string, () => boolean> = {
 // Schema to UI Conversion
 // ═══════════════════════════════════════════════════════════════════════════
 
-function resolveOptions(ui: AnyUiMetadata): OptionList | "runtime" | undefined {
+function resolveOptions(path: SettingPath, ui: AnyUiMetadata): OptionList | "runtime" | undefined {
 	if (!ui.options) return undefined;
 	if (ui.options === "runtime") return "runtime";
-	return ui.options;
+	// English has no override table, so the schema's own array is handed back
+	// untouched and the panel allocates nothing extra.
+	if (!settingOptionOverrides(path)) return ui.options;
+	return ui.options.map(option => ({
+		value: option.value,
+		label: localizedOptionText(path, option.value, "label", option.label),
+		description:
+			option.description === undefined
+				? undefined
+				: localizedOptionText(path, option.value, "description", option.description),
+	}));
 }
 
 function pathToSettingDef(path: SettingPath): SettingDef | null {
@@ -188,9 +200,9 @@ function pathToSettingDef(path: SettingPath): SettingDef | null {
 	const condition = ui.condition ? CONDITIONS[ui.condition] : undefined;
 	const base = {
 		path,
-		label: ui.label,
-		description: ui.description,
-		warning: ui.warning,
+		label: localizedSettingText(path, "label", ui.label),
+		description: localizedSettingText(path, "description", ui.description),
+		warning: ui.warning === undefined ? undefined : localizedSettingText(path, "warning", ui.warning),
 		tab: ui.tab,
 		group: ui.group,
 		condition,
@@ -200,7 +212,7 @@ function pathToSettingDef(path: SettingPath): SettingDef | null {
 		return { ...base, type: "boolean" };
 	}
 
-	const options = resolveOptions(ui);
+	const options = resolveOptions(path, ui);
 
 	if (schemaType === "enum") {
 		if (options === undefined) {
@@ -253,6 +265,11 @@ function pathToSettingDef(path: SettingPath): SettingDef | null {
 
 /** Cache of generated definitions */
 let cachedDefs: SettingDef[] | null = null;
+
+// Labels are language-dependent, so a language switch must rebuild them.
+onLocaleChange(() => {
+	cachedDefs = null;
+});
 
 /** Get all setting definitions with UI */
 export function getAllSettingDefs(): SettingDef[] {

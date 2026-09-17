@@ -42,6 +42,8 @@ import type {
 	StatusLineSeparatorStyle,
 } from "../../config/settings-schema";
 import { SETTING_TABS, TAB_METADATA } from "../../config/settings-schema";
+import { getLocale, type LocaleId, onLocaleChange, t } from "../../i18n";
+import { localizedGroupLabel, localizedTabLabel } from "../../i18n/settings-metadata";
 import { getCurrentThemeName, getSelectListTheme, getSettingsListTheme, theme } from "../../modes/theme/theme";
 import { AUTO_THINKING, type ConfiguredThinkingLevel } from "../../thinking";
 import { getTabBarTheme } from "../shared";
@@ -137,7 +139,7 @@ class SelectSubmenu extends Container {
 		// Preview (if provided)
 		if (getPreview) {
 			this.addChild(new Spacer(1));
-			this.addChild(new Text(theme.fg("muted", "Preview:"), 0, 0));
+			this.addChild(new Text(theme.fg("muted", t("common.previewLabel")), 0, 0));
 			this.#previewText = new Text(getPreview(), 0, 0);
 			this.addChild(this.#previewText);
 		}
@@ -280,9 +282,7 @@ class MultiSelectSubmenu extends Container {
 		this.addChild(this.#selectList);
 
 		this.addChild(new Spacer(1));
-		const hint = this.ordered
-			? "  Click to toggle · drag selected items to reorder · ←/→ move · 1-9 place · Esc to go back"
-			: "  Click/Enter/Space to toggle · Esc to go back";
+		const hint = this.ordered ? t("settings.multiselect.hintOrdered") : t("settings.multiselect.hintToggle");
 		this.addChild(new Text(theme.fg("dim", hint), 0, 0));
 	}
 
@@ -419,18 +419,9 @@ class ProviderLimitsSubmenu extends Container {
 
 	#showProviderList(): void {
 		this.clear();
-		this.addChild(new Text(theme.bold(theme.fg("accent", "Max In-Flight Requests")), 0, 0));
+		this.addChild(new Text(theme.bold(theme.fg("accent", t("settings.providerLimits.title"))), 0, 0));
 		this.addChild(new Spacer(1));
-		this.addChild(
-			new Text(
-				theme.fg(
-					"muted",
-					"Select a provider, enter a positive number to cap concurrent LLM requests, or clear it for unlimited.",
-				),
-				0,
-				0,
-			),
-		);
+		this.addChild(new Text(theme.fg("muted", t("settings.providerLimits.help")), 0, 0));
 		this.addChild(new Spacer(1));
 
 		const limits = normalizeProviderMaxInFlightRequests(settings.get("providers.maxInFlightRequests"));
@@ -439,13 +430,20 @@ class ProviderLimitsSubmenu extends Container {
 			return {
 				value: provider,
 				label: provider,
-				description: limit === undefined ? "Unlimited" : `Limit: ${limit}`,
+				description:
+					limit === undefined ? t("common.unlimited") : t("settings.providerLimits.limit", { value: limit }),
 			};
 		});
 		const clearItem: SelectItem[] =
 			Object.keys(limits).length === 0
 				? []
-				: [{ value: "__clear_all", label: "Clear all limits", description: "Make every provider unlimited" }];
+				: [
+						{
+							value: "__clear_all",
+							label: t("settings.providerLimits.clearAll"),
+							description: t("settings.providerLimits.clearAllDescription"),
+						},
+					];
 		const items = [...providerItems, ...clearItem];
 		this.#selectList = new SelectList(items, Math.min(Math.max(items.length, 1), 12), getSelectListTheme());
 		this.#selectList.onSelect = item => {
@@ -470,8 +468,8 @@ class ProviderLimitsSubmenu extends Container {
 		this.#selectList = undefined;
 		this.addChild(
 			new TextInputSubmenu(
-				`Max In-Flight Requests: ${provider}`,
-				"Enter a positive number. Decimals round down. Clear the field to make this provider unlimited.",
+				`${t("settings.providerLimits.title")}: ${provider}`,
+				t("settings.providerLimits.inputHelp"),
 				limits[provider]?.toString() ?? "",
 				false,
 				value => {
@@ -518,7 +516,7 @@ function settingsSidebarWidth(): number {
 		let nameWidth = 0;
 		for (const tab of SETTING_TABS) {
 			for (const def of getSettingsForTab(tab)) {
-				if (def.group) nameWidth = Math.max(nameWidth, visibleWidth(def.group));
+				if (def.group) nameWidth = Math.max(nameWidth, visibleWidth(localizedGroupLabel(tab, def.group)));
 			}
 		}
 		cachedSidebarWidth = Math.min(22, nameWidth) + 4;
@@ -526,12 +524,18 @@ function settingsSidebarWidth(): number {
 	return cachedSidebarWidth;
 }
 
+// Tab and section names are language-dependent, so the divider column must be
+// remeasured when the language changes.
+onLocaleChange(() => {
+	cachedSidebarWidth = undefined;
+});
+
 function getSettingsTabs(): Tab[] {
 	return [
 		...SETTING_TABS.map(id => {
 			const meta = TAB_METADATA[id];
 			const icon = theme.symbol(meta.icon);
-			return { id, label: `${icon} ${meta.label}`, short: icon };
+			return { id, label: `${icon} ${localizedTabLabel(id)}`, short: icon };
 		}),
 		{ id: "plugins", label: `${theme.icon.package} Plugins`, short: theme.icon.package },
 	];
@@ -614,6 +618,8 @@ export class SettingsSelectorComponent implements Component {
 	#tabRowCount = 0;
 	#contentRowStart = 0;
 	#contentRowCount = 0;
+	/** Language the current lists were built for; a mismatch forces a rebuild on render. */
+	#builtLocale: LocaleId = getLocale();
 
 	constructor(
 		private readonly context: SettingsRuntimeContext,
@@ -666,22 +672,25 @@ export class SettingsSelectorComponent implements Component {
 
 	#footerHintText(): string {
 		if (this.#searchList) {
-			return "Enter to change · Tab to jump tabs · Esc to exit search";
+			return t("settings.hints.search");
 		}
 		if (this.#currentTabId === "plugins") {
-			return "Tab to switch tabs · Esc to close";
+			return t("settings.hints.plugins");
 		}
 		if (this.#currentList?.sectionFocused) {
-			return "↑/↓ to jump sections · Tab/Enter to settings · ←/→ to switch tabs · Esc to close";
+			return t("settings.hints.sectionFocused");
 		}
-		const nav = this.#hasSectionJump ? "Tab to jump sections · ←/→ to switch tabs" : "Tab to switch tabs";
-		return `Enter/Space to change · ${nav} · Type to search · Esc to close`;
+		const nav = this.#hasSectionJump ? t("settings.hints.navSections") : t("settings.hints.navTabs");
+		return t("settings.hints.footer", { nav });
 	}
 
 	/** Single-line search banner: accent icon, editable query with live cursor, right-aligned match count. */
 	#renderSearchBanner(width: number): string {
 		const icon = theme.symbol("icon.search");
-		const countText = this.#searchMatchCount === 1 ? "1 match" : `${this.#searchMatchCount} matches`;
+		const countText =
+			this.#searchMatchCount === 1
+				? t("settings.search.matchCountOne")
+				: t("settings.search.matchCountOther", { count: this.#searchMatchCount });
 		const rightWidth = visibleWidth(countText) + 1; // trailing margin
 		const prefix = ` ${theme.fg("accent", icon)} `;
 		// The input pads itself to exactly this width and keeps the cursor in view.
@@ -697,13 +706,28 @@ export class SettingsSelectorComponent implements Component {
 	 * then a footer hint pinned above the bottom border.
 	 */
 	render(width: number): readonly string[] {
+		// Lists bake some strings in at construction (a list's empty-state text,
+		// for one), so a language switch cannot be fixed by repainting alone.
+		// Checking here rather than subscribing keeps the panel free of a
+		// listener that would outlive each open.
+		if (this.#builtLocale !== getLocale()) {
+			this.#builtLocale = getLocale();
+			this.#tabBar.setTabs(getSettingsTabs(), this.#currentTabId);
+			if (this.#searchList) {
+				this.#startSearch(this.#searchQuery);
+			} else {
+				this.#switchToTab(this.#currentTabId);
+			}
+		}
 		const height = Math.max(14, process.stdout.rows || 40);
 		const innerWidth = Math.max(1, width - 4);
 
 		const tabLines = this.#tabBar.render(innerWidth);
 		const searching = this.#searchList !== null;
 		const showPreview = !searching && this.#currentTabId === "appearance";
-		const previewLines = showPreview ? ["", theme.fg("muted", "Preview:"), this.#getStatusPreviewString()] : [];
+		const previewLines = showPreview
+			? ["", theme.fg("muted", t("common.previewLabel")), this.#getStatusPreviewString()]
+			: [];
 
 		// Fixed chrome: top border, tabs, divider, [search row], divider, hint, bottom border.
 		const fixedRows = 1 + tabLines.length + 1 + (searching ? 1 : 0) + 1 + 1 + 1;
@@ -722,7 +746,7 @@ export class SettingsSelectorComponent implements Component {
 		}
 
 		const out: string[] = [];
-		out.push(topBorder(width, "Settings"));
+		out.push(topBorder(width, t("settings.title")));
 		this.#tabRowStart = out.length;
 		this.#tabRowCount = tabLines.length;
 		for (const line of tabLines) {
@@ -829,7 +853,7 @@ export class SettingsSelectorComponent implements Component {
 			{
 				layout: "flat",
 				typeToSearch: false,
-				emptyText: "No matching settings",
+				emptyText: t("settings.search.empty"),
 				hint: "",
 			},
 		);
@@ -883,7 +907,7 @@ export class SettingsSelectorComponent implements Component {
 			const meta = TAB_METADATA[result.tab];
 			items.push({
 				id: `__tab:${result.tab}`,
-				label: `${theme.symbol(meta.icon)} ${meta.label}`,
+				label: `${theme.symbol(meta.icon)} ${localizedTabLabel(result.tab)}`,
 				currentValue: "",
 				heading: true,
 			});
@@ -933,14 +957,14 @@ export class SettingsSelectorComponent implements Component {
 			const icon = theme.symbol(meta.icon);
 			const count = counts.get(id) ?? 0;
 			if (count > 0) {
-				matched.push({ id, label: `${icon} ${meta.label} (${count})`, short: `${icon} ${count}` });
+				matched.push({ id, label: `${icon} ${localizedTabLabel(id)} (${count})`, short: `${icon} ${count}` });
 			}
 		}
 		for (const id of SETTING_TABS) {
 			if (matchedIds.has(id)) continue;
 			const meta = TAB_METADATA[id];
 			const icon = theme.symbol(meta.icon);
-			empty.push({ id, label: `${icon} ${meta.label}`, short: icon, muted: true });
+			empty.push({ id, label: `${icon} ${localizedTabLabel(id)}`, short: icon, muted: true });
 		}
 		// Plugins hosts its own UI; it is not part of the schema-backed search.
 		empty.push({
@@ -1369,7 +1393,12 @@ export class SettingsSelectorComponent implements Component {
 			const item = this.#defToItem(def);
 			if (!item) continue;
 			if (def.group && def.group !== lastGroup) {
-				items.push({ id: `__heading:${def.group}`, label: def.group, currentValue: "", heading: true });
+				items.push({
+					id: `__heading:${def.group}`,
+					label: localizedGroupLabel(def.tab, def.group),
+					currentValue: "",
+					heading: true,
+				});
 				lastGroup = def.group;
 			}
 			items.push(item);
