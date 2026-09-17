@@ -5,6 +5,7 @@
 ### Added
 
 - Interface language setting (`display.locale`, default `en-US`) under Appearance → Display in `/settings`. English stays the canonical source and the fallback for anything a translation has not covered; model prompts, tool names, schemas, and protocol fields are unaffected.
+- Brazilian Portuguese (`pt-BR`) interface translation covering the settings panel, the main screen and subagent HUD, session and model pickers, dialogs, Agent Hub, plan review, the slash-command surfaces, MCP, plugins and `/hotkeys`.
 
 ## [18.2.3] - 2026-09-17
 
