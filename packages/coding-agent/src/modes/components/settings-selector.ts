@@ -100,7 +100,7 @@ class TextInputSubmenu extends Container {
 		this.addChild(this.#input);
 		this.addChild(new Spacer(1));
 		this.addChild(this.#error);
-		this.addChild(new Text(theme.fg("dim", "  Enter to save · Esc to cancel · Clear field to unset"), 0, 0));
+		this.addChild(new Text(theme.fg("dim", t("settings.textInput.hint")), 0, 0));
 	}
 
 	handleInput(data: string): void {
@@ -184,7 +184,7 @@ class SelectSubmenu extends Container {
 
 		// Hint
 		this.addChild(new Spacer(1));
-		this.addChild(new Text(theme.fg("dim", "  Enter to select · Esc to go back"), 0, 0));
+		this.addChild(new Text(theme.fg("dim", t("settings.submenu.hintSelect")), 0, 0));
 
 		// Footer (e.g. the snapcompact shape preview) below the interactive rows,
 		// so the list never shifts while browsing.
@@ -459,7 +459,7 @@ class ProviderLimitsSubmenu extends Container {
 		this.#selectList.onCancel = this.onCancel;
 		this.addChild(this.#selectList);
 		this.addChild(new Spacer(1));
-		this.addChild(new Text(theme.fg("dim", "  Enter to edit provider · Esc to go back"), 0, 0));
+		this.addChild(new Text(theme.fg("dim", t("settings.providerLimits.hintEdit")), 0, 0));
 	}
 
 	#showProviderEditor(provider: string): void {
@@ -479,7 +479,8 @@ class ProviderLimitsSubmenu extends Container {
 						delete next[provider];
 					} else {
 						const limit = Number(trimmed);
-						if (!Number.isFinite(limit) || limit <= 0) throw new Error("Limit must be a positive number.");
+						if (!Number.isFinite(limit) || limit <= 0)
+							throw new Error(t("settings.providerLimits.errorPositiveNumber"));
 						next[provider] = Math.max(1, Math.floor(limit));
 					}
 					const normalized = validateProviderMaxInFlightRequests(next);
@@ -537,7 +538,7 @@ function getSettingsTabs(): Tab[] {
 			const icon = theme.symbol(meta.icon);
 			return { id, label: `${icon} ${localizedTabLabel(id)}`, short: icon };
 		}),
-		{ id: "plugins", label: `${theme.icon.package} Plugins`, short: theme.icon.package },
+		{ id: "plugins", label: `${theme.icon.package} ${t("settings.tabs.plugins")}`, short: theme.icon.package },
 	];
 }
 
@@ -969,7 +970,7 @@ export class SettingsSelectorComponent implements Component {
 		// Plugins hosts its own UI; it is not part of the schema-backed search.
 		empty.push({
 			id: "plugins",
-			label: `${theme.icon.package} Plugins`,
+			label: `${theme.icon.package} ${t("settings.tabs.plugins")}`,
 			short: theme.icon.package,
 			muted: true,
 		});
@@ -1244,7 +1245,7 @@ export class SettingsSelectorComponent implements Component {
 	#formatProviderLimitsValue(value: unknown): string {
 		const limits = normalizeProviderMaxInFlightRequests(value);
 		const entries = Object.entries(limits).sort(([a], [b]) => a.localeCompare(b));
-		if (entries.length === 0) return "Unlimited";
+		if (entries.length === 0) return t("common.unlimited");
 		return entries.map(([provider, limit]) => `${provider}: ${limit}`).join(", ");
 	}
 
@@ -1284,7 +1285,7 @@ export class SettingsSelectorComponent implements Component {
 					return option ? [option.label] : [];
 				})
 			: [];
-		if (labels.length === 0) return def.ordered ? "default" : "none";
+		if (labels.length === 0) return def.ordered ? t("settings.multiselect.default") : t("settings.multiselect.none");
 		return def.ordered ? labels.join(" → ") : labels.join(", ");
 	}
 
@@ -1419,7 +1420,7 @@ export class SettingsSelectorComponent implements Component {
 		if (this.callbacks.getStatusLinePreview) {
 			return this.callbacks.getStatusLinePreview();
 		}
-		return theme.fg("dim", "(preview not available)");
+		return theme.fg("dim", t("settings.statusLine.previewNotAvailable"));
 	}
 
 	/**
