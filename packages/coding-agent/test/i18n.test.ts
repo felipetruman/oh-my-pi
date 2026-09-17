@@ -222,13 +222,11 @@ describe("i18n", () => {
 
 		it("offers only the languages that have a shipped translation", () => {
 			// The panel must not advertise a language whose translation has not
-			// landed: the enum reserves the id, `ui.options` gates the offer.
+			// landed: the enum reserves the id, `ui.options` gates the offer. Both
+			// lists now agree because pt-BR is translated.
 			const def = getSettingsForTab("appearance").find(entry => entry.path === "display.locale");
 			const offered = def?.type === "submenu" ? def.options.map(option => option.value) : [];
-			expect(offered).toEqual(["en-US"]);
-
-			// pt-BR stays resolvable and storable even while unoffered, so the
-			// translation can be built and tested against this same runtime.
+			expect(offered).toEqual(["en-US", "pt-BR"]);
 			expect(getEnumValues("display.locale")).toEqual(["en-US", "pt-BR"]);
 			expect(SUPPORTED_LOCALES).toContain("pt-BR");
 			setLocale("pt-BR");

@@ -715,7 +715,7 @@ For a custom status line, set `statusLine.preset: custom` and configure `statusL
 
 The `cost` segment shows recorded session costs. For an active provider/model with scheduled pricing, it appends `↑` during peak hours or `↓` off-peak, refreshing at boundaries even while idle. The arrow reflects the current tariff, not past spending; flat-price models and explicit cost overrides have no arrow. See [usage costs and time-based pricing](models.md#usage-costs-and-time-based-pricing) for the UTC schedule and estimation semantics.
 
-The enum reserves an id for every language the runtime can resolve, but `/settings` offers only the ones with a shipped translation — today that is `English` alone. Switching the setting takes effect on the next render of the panel; no restart is needed. The stored value is always the machine id, never the displayed language name.
+The enum reserves an id for every language the runtime can resolve, and `/settings` offers the ones with a shipped translation — currently `English` and `Português (Brasil)`. Switching the setting takes effect on the next render of the panel; no restart is needed. The stored value is always the machine id (`en-US`, `pt-BR`), never the displayed language name.
 
 ### Interaction
 

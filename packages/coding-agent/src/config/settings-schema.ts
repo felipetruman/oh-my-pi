@@ -1200,7 +1200,10 @@ export const SETTINGS_SCHEMA = {
 			group: "Display",
 			label: "Interface Language",
 			description: "Language used by the OMP terminal interface",
-			options: [{ value: "en-US", label: "English", description: "Canonical interface language" }],
+			options: [
+				{ value: "en-US", label: "English", description: "Canonical interface language" },
+				{ value: "pt-BR", label: "Português (Brasil)", description: "Interface em Português do Brasil" },
+			],
 		},
 	},
 	"tui.resizeScrollback": {
