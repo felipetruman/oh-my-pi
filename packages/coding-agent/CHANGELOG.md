@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Interface language setting (`display.locale`, default `en-US`) under Appearance → Display in `/settings`. English stays the canonical source and the fallback for anything a translation has not covered; model prompts, tool names, schemas, and protocol fields are unaffected.
+
 ## [18.2.3] - 2026-09-17
 
 ### Breaking Changes
