@@ -77,6 +77,7 @@ import {
 	stopPendingStartupComposer,
 	takeStartupComposerLease,
 } from "./modes/startup-composer";
+import { initLocaleFromSettings } from "./i18n/settings-locale";
 import { ensureTheme, initTheme, stopThemeWatcher } from "./modes/theme/theme";
 import type { SubmittedUserInput } from "./modes/types";
 import { createWarpEventBridgeExtension } from "./modes/warp-events";
@@ -1798,6 +1799,11 @@ export async function runRootCommand(
 			settingsInstance.get("theme.dark"),
 			settingsInstance.get("theme.light"),
 		);
+
+		// Settings are resolved here: adopt them as the language authority so the
+		// interface follows `display.locale` and later edits to it. The prepaint
+		// above already painted from the cached value.
+		initLocaleFromSettings(settingsInstance);
 
 		applyStartupComposerPreferences({
 			quiet: settingsInstance.get("startup.quiet"),
