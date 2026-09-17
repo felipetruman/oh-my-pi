@@ -1,6 +1,7 @@
 import type { AssistantMessage, Message } from "@oh-my-pi/pi-ai";
 import { type OverlayHandle, replaceTabs } from "@oh-my-pi/pi-tui";
 import { logger, prompt, Snowflake, toError, withTimeout } from "@oh-my-pi/pi-utils";
+import { t } from "../../i18n";
 import btwUserPrompt from "../../prompts/system/btw-user.md" with { type: "text" };
 import {
 	type BtwHistoryRecord,
@@ -101,20 +102,20 @@ export class BtwController {
 	}
 
 	#branchUnavailableReason(): string | undefined {
-		if (this.#branchInFlight) return "a branch is already in progress";
-		if (this.#transitionCount > 0) return "a session operation is in progress";
-		if (!this.#visible || this.#activeRequest?.component.isBranchable() !== true) return "the answer is not ready";
+		if (this.#branchInFlight) return t("btw.reason.branchInProgress");
+		if (this.#transitionCount > 0) return t("btw.reason.sessionOperation");
+		if (!this.#visible || this.#activeRequest?.component.isBranchable() !== true) return t("btw.reason.notReady");
 		// Inline branch promotion carries one pair; do not drop earlier side turns.
-		if (this.#activeRequest.history?.length) return "multi-turn side conversations remain in BTW history";
+		if (this.#activeRequest.history?.length) return t("btw.reason.multiTurnHistory");
 		if (!this.#lastQuestion || !this.#lastReplyText || !this.#lastAssistantMessage)
-			return "the answer is unavailable";
-		if (!this.#lastLeafId) return "the session has no branch point";
+			return t("btw.reason.unavailable");
+		if (!this.#lastLeafId) return t("btw.reason.noBranchPoint");
 		if (
 			this.#lastSessionId !== this.ctx.sessionManager.getSessionId() ||
 			this.#lastLeafId !== this.ctx.sessionManager.getLeafId()
 		)
-			return "the session changed since /btw started";
-		if (this.ctx.session.isStreaming) return "a turn is still running";
+			return t("btw.reason.sessionChanged");
+		if (this.ctx.session.isStreaming) return t("btw.reason.turnRunning");
 		return undefined;
 	}
 
@@ -135,7 +136,7 @@ export class BtwController {
 		const inlineRequest = options?.historyRecordId === undefined ? this.#activeRequest : undefined;
 		try {
 			await copyToClipboard(replaceTabs(answer).trim());
-			this.ctx.showStatus("Copied /btw answer to clipboard");
+			this.ctx.showStatus(t("btw.copiedAnswer"));
 			if (options?.historyRecordId !== undefined) this.#historyPanel?.markCopied(options.historyRecordId, answer);
 			else if (inlineRequest && this.#visible && this.#activeRequest === inlineRequest)
 				inlineRequest.component.markCopied();
@@ -156,7 +157,7 @@ export class BtwController {
 	async handleBranch(): Promise<boolean> {
 		const unavailableReason = this.#branchUnavailableReason();
 		if (unavailableReason) {
-			this.ctx.showStatus(`/btw branch unavailable: ${unavailableReason}`, { dim: true });
+			this.ctx.showStatus(t("btw.branchUnavailable", { reason: unavailableReason }), { dim: true });
 			return false;
 		}
 		const request = this.#activeRequest;
@@ -172,7 +173,7 @@ export class BtwController {
 			await this.ctx.handleBtwBranch(question, assistantMessage, leafId, sessionId);
 			return true;
 		} catch (error) {
-			this.ctx.showError(sanitizeErrorLine(`Cannot branch /btw: ${toError(error).message}`));
+			this.ctx.showError(sanitizeErrorLine(t("btw.cannotBranch", { error: toError(error).message })));
 			return false;
 		} finally {
 			this.#branchInFlight = false;
@@ -182,7 +183,7 @@ export class BtwController {
 
 	handleEscape(): boolean {
 		if (this.#branchInFlight) {
-			this.ctx.showStatus("/btw branch is in progress", { dim: true });
+			this.ctx.showStatus(t("btw.branchInProgress"), { dim: true });
 			return true;
 		}
 		if (!this.#visible) return false;
@@ -244,11 +245,7 @@ export class BtwController {
 	}
 
 	async flush(timeoutMs = 10_000): Promise<void> {
-		await withTimeout(
-			this.#drainWrites(),
-			timeoutMs,
-			"BTW history is still being saved. The session operation was stopped; retry when storage responds.",
-		);
+		await withTimeout(this.#drainWrites(), timeoutMs, t("btw.historySaving"));
 	}
 
 	async #drainWrites(): Promise<void> {
@@ -261,7 +258,7 @@ export class BtwController {
 		if (failure) {
 			throw new Error(
 				sanitizeErrorLine(
-					`BTW history could not be saved: ${sanitizeErrorLine(failure)}. The session operation was stopped; retry after fixing storage. Unsaved answers remain in /btw.`,
+					t("btw.historySaveStopped", { error: sanitizeErrorLine(failure) }),
 					TRUNCATE_LENGTHS.RECAP,
 				),
 				{ cause: failure },
@@ -276,7 +273,7 @@ export class BtwController {
 			this.#transitionCount > 0 ||
 			(this.#activeRequest && getBtwLatestTurn(this.#activeRequest.record).status === "running")
 		) {
-			this.ctx.showStatus("Wait for the current /btw answer to finish or cancel it before moving.", { dim: true });
+			this.ctx.showStatus(t("btw.waitBeforeMoving"), { dim: true });
 			return false;
 		}
 		this.#transitionCount++;
@@ -302,7 +299,7 @@ export class BtwController {
 				this.ctx.sessionManager.getSessionId() !== sessionId ||
 				(this.ctx.sessionManager.getArtifactsDir() ?? undefined) !== artifactsDir
 			) {
-				throw new Error("The session changed while opening BTW history.");
+				throw new Error(t("btw.sessionChangedWhileOpening"));
 			}
 			this.#storeSessionId = sessionId;
 			this.#storeArtifactsDir = artifactsDir;
@@ -332,7 +329,7 @@ export class BtwController {
 		if (signal?.aborted) return false;
 		const trimmedQuestion = question.trim();
 		if (this.#starting || this.#branchInFlight || this.#transitionCount > 0) {
-			this.ctx.showStatus("A /btw action is in progress. Please wait.", { dim: true });
+			this.ctx.showStatus(t("btw.actionInProgress"), { dim: true });
 			return false;
 		}
 		if (
@@ -341,9 +338,7 @@ export class BtwController {
 			getBtwLatestTurn(this.#activeRequest.record).status === "running" &&
 			this.#activeRequest.sessionId === this.ctx.sessionManager.getSessionId()
 		) {
-			this.ctx.showStatus("A /btw question is still running. Open /btw to view it or cancel it first.", {
-				dim: true,
-			});
+			this.ctx.showStatus(t("btw.questionRunning"), { dim: true });
 			return false;
 		}
 		const originalSessionId = this.ctx.sessionManager.getSessionId();
@@ -368,12 +363,12 @@ export class BtwController {
 				return false;
 			const previous = recordId ? store.getRecords().find(record => record.id === recordId) : undefined;
 			if (recordId && (!previous || getBtwLatestTurn(previous).status === "running")) {
-				this.ctx.showStatus("This side conversation is unavailable or still running.", { dim: true });
+				this.ctx.showStatus(t("btw.sideConversationUnavailable"), { dim: true });
 				return false;
 			}
 			const session = this.ctx.session;
 			if (!session.model) {
-				this.ctx.showError("No active model available for /btw.");
+				this.ctx.showError(t("btw.noModel"));
 				return false;
 			}
 			await this.ctx.sessionManager.ensureOnDisk();
@@ -449,7 +444,7 @@ export class BtwController {
 			void this.#runRequest(request);
 			return true;
 		} catch (error) {
-			this.ctx.showError(sanitizeErrorLine(`Cannot open /btw history: ${toError(error).message}`));
+			this.ctx.showError(sanitizeErrorLine(t("btw.cannotOpenHistory", { error: toError(error).message })));
 			return false;
 		} finally {
 			this.#starting = false;
@@ -544,7 +539,7 @@ export class BtwController {
 				if (request.persisted) this.#failedWrites.set(request, toError(error));
 				logger.error("BTW history save failed", { error });
 				if (request.sessionId === this.ctx.sessionManager.getSessionId()) {
-					this.ctx.showError(sanitizeErrorLine(`Could not save /btw history: ${toError(error).message}`));
+					this.ctx.showError(sanitizeErrorLine(t("btw.historySaveFailed", { error: toError(error).message })));
 				}
 				return false;
 			},
@@ -573,7 +568,7 @@ export class BtwController {
 		try {
 			const promptText = prompt.render(btwUserPrompt, { question: request.question });
 			const model = request.session.model;
-			if (!model) throw new Error("No active model available for /btw.");
+			if (!model) throw new Error(t("btw.noModel"));
 			const history: Message[] = [];
 			for (const turn of request.history ?? []) {
 				history.push({

@@ -7,6 +7,10 @@
  * wording, and add-flow logic stay in the per-controller files because they
  * diverge in workflow.
  */
+// The two argument errors below reuse the `mcp.*` keys rather than getting their
+// own: the wording is identical and /ssh shows the same message, so a second
+// copy would be two strings to keep in sync for no gain.
+import { t } from "../../i18n";
 import { Text } from "@oh-my-pi/pi-tui";
 import type { SourceMeta } from "../../capability/types";
 import { shortenPath } from "../../tools/render-utils";
@@ -24,7 +28,7 @@ export type ScopeFlagResult = { ok: true; scope: ScopeValue } | { ok: false; err
  */
 export function readScopeFlag(value: string | undefined): ScopeFlagResult {
 	if (!value || (value !== "project" && value !== "user")) {
-		return { ok: false, error: "Invalid --scope value. Use project or user." };
+		return { ok: false, error: t("mcp.errInvalidScope") };
 	}
 	return { ok: true, scope: value };
 }
@@ -61,7 +65,7 @@ export function parseRemoveArgs(rest: string): ParseRemoveResult {
 			i += 2;
 			continue;
 		}
-		return { ok: false, error: `Unknown option: ${token}` };
+		return { ok: false, error: t("mcp.errUnknownOption", { option: token }) };
 	}
 
 	return { ok: true, value: { name, scope } };

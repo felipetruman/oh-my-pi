@@ -7,6 +7,7 @@ import { getProjectDir, getSSHConfigPath } from "@oh-my-pi/pi-utils";
 import { reset as resetCapabilities } from "../../capability";
 import { type SSHHost, sshCapability } from "../../capability/ssh";
 import { loadCapability } from "../../discovery";
+import { t } from "../../i18n";
 import { addSSHHost, readSSHConfigFile, removeSSHHost, type SSHHostConfig } from "../../ssh/config-writer";
 import { parseCommandArgs } from "../shared";
 import { theme } from "../theme/theme";
@@ -18,6 +19,12 @@ import {
 	type ScopeValue,
 	showCommandMessage,
 } from "./command-controller-shared";
+
+/** Invocation syntax echoed back in usage hints; not translatable. */
+const ADD_USAGE =
+	"/ssh add <name> --host <host> [--user <user>] [--port <port>] [--key <keyPath>] [--desc <description>] [--compat] [--scope project|user]";
+const ADD_USAGE_SHORT = "/ssh add <name> --host <host> ...";
+const REMOVE_USAGE = "/ssh remove <name> [--scope project|user]";
 
 export class SSHCommandController {
 	constructor(private ctx: InteractiveModeContext) {}
@@ -46,7 +53,7 @@ export class SSHCommandController {
 				await this.#handleRemove(text);
 				break;
 			default:
-				this.ctx.showError(`Unknown subcommand: ${subcommand}. Type /ssh help for usage.`);
+				this.ctx.showError(t("ssh.errUnknownSubcommand", { subcommand }));
 		}
 	}
 
@@ -56,15 +63,15 @@ export class SSHCommandController {
 	#showHelp(): void {
 		const helpText = [
 			"",
-			theme.bold("SSH Host Management"),
+			theme.bold(t("ssh.help.title")),
 			"",
-			"Manage SSH host configurations for remote command execution.",
+			t("ssh.help.intro"),
 			"",
-			theme.fg("accent", "Commands:"),
-			"  /ssh add <name> --host <host> [--user <user>] [--port <port>] [--key <keyPath>] [--desc <description>] [--compat] [--scope project|user]",
-			"  /ssh list             List all configured SSH hosts",
-			"  /ssh remove <name> [--scope project|user]    Remove an SSH host (default: project)",
-			"  /ssh help             Show this help message",
+			theme.fg("accent", t("mcp.help.commandsHeading")),
+			`  ${ADD_USAGE}`,
+			`  /ssh list             ${t("ssh.help.list")}`,
+			`  ${REMOVE_USAGE}    ${t("ssh.help.remove")}`,
+			`  /ssh help             ${t("mcp.help.help")}`,
 			"",
 		].join("\n");
 
@@ -78,17 +85,13 @@ export class SSHCommandController {
 		const prefixMatch = text.match(/^\/ssh\s+add\b\s*(.*)$/i);
 		const rest = prefixMatch?.[1]?.trim() ?? "";
 		if (!rest) {
-			this.ctx.showError(
-				"Usage: /ssh add <name> --host <host> [--user <user>] [--port <port>] [--key <keyPath>] [--desc <description>] [--compat] [--scope project|user]",
-			);
+			this.ctx.showError(t("ssh.usage", { usage: ADD_USAGE }));
 			return;
 		}
 
 		const tokens = parseCommandArgs(rest);
 		if (tokens.length === 0) {
-			this.ctx.showError(
-				"Usage: /ssh add <name> --host <host> [--user <user>] [--port <port>] [--key <keyPath>] [--desc <description>] [--compat] [--scope project|user]",
-			);
+			this.ctx.showError(t("ssh.usage", { usage: ADD_USAGE }));
 			return;
 		}
 
@@ -112,7 +115,7 @@ export class SSHCommandController {
 			if (argToken === "--host") {
 				const value = tokens[i + 1];
 				if (!value) {
-					this.ctx.showError("Missing value for --host.");
+					this.ctx.showError(t("ssh.errMissingHostValue"));
 					return;
 				}
 				host = value;
@@ -122,7 +125,7 @@ export class SSHCommandController {
 			if (argToken === "--user") {
 				const value = tokens[i + 1];
 				if (!value) {
-					this.ctx.showError("Missing value for --user.");
+					this.ctx.showError(t("ssh.errMissingUserValue"));
 					return;
 				}
 				username = value;
@@ -132,12 +135,12 @@ export class SSHCommandController {
 			if (argToken === "--port") {
 				const value = tokens[i + 1];
 				if (!value) {
-					this.ctx.showError("Missing value for --port.");
+					this.ctx.showError(t("ssh.errMissingPortValue"));
 					return;
 				}
 				const parsed = Number.parseInt(value, 10);
 				if (Number.isNaN(parsed) || parsed < 1 || parsed > 65535) {
-					this.ctx.showError("Invalid --port value. Must be an integer between 1 and 65535.");
+					this.ctx.showError(t("ssh.errInvalidPort"));
 					return;
 				}
 				port = parsed;
@@ -147,7 +150,7 @@ export class SSHCommandController {
 			if (argToken === "--key") {
 				const value = tokens[i + 1];
 				if (!value) {
-					this.ctx.showError("Missing value for --key.");
+					this.ctx.showError(t("ssh.errMissingKeyValue"));
 					return;
 				}
 				keyPath = value;
@@ -157,7 +160,7 @@ export class SSHCommandController {
 			if (argToken === "--desc") {
 				const value = tokens[i + 1];
 				if (!value) {
-					this.ctx.showError("Missing value for --desc.");
+					this.ctx.showError(t("ssh.errMissingDescValue"));
 					return;
 				}
 				description = value;
@@ -179,17 +182,17 @@ export class SSHCommandController {
 				i += 2;
 				continue;
 			}
-			this.ctx.showError(`Unknown option: ${argToken}`);
+			this.ctx.showError(t("mcp.errUnknownOption", { option: argToken }));
 			return;
 		}
 
 		if (!name) {
-			this.ctx.showError("Host name required. Usage: /ssh add <name> --host <host> ...");
+			this.ctx.showError(t("ssh.errHostNameRequired", { usage: ADD_USAGE_SHORT }));
 			return;
 		}
 
 		if (!host) {
-			this.ctx.showError("--host is required. Usage: /ssh add <name> --host <host> ...");
+			this.ctx.showError(t("ssh.errHostRequired", { usage: ADD_USAGE_SHORT }));
 			return;
 		}
 
@@ -210,7 +213,7 @@ export class SSHCommandController {
 			const scopeLabel = scope === "user" ? "user" : "project";
 			const lines = [
 				"",
-				theme.fg("success", `+ Added SSH host "${name}" to ${scopeLabel} config`),
+				theme.fg("success", `+ ${t("ssh.addedHost", { name, scope: scopeLabel })}`),
 				"",
 				`  Host: ${host}`,
 			];
@@ -220,7 +223,7 @@ export class SSHCommandController {
 			if (description) lines.push(`  Desc: ${description}`);
 			if (compat) lines.push(`  Compat: true`);
 			lines.push("");
-			lines.push(theme.fg("muted", `Run ${theme.fg("accent", "/ssh list")} to see all configured hosts.`));
+			lines.push(theme.fg("muted", t("ssh.runListHint", { command: theme.fg("accent", "/ssh list") })));
 			lines.push("");
 
 			this.#showMessage(lines.join("\n"));
@@ -229,10 +232,10 @@ export class SSHCommandController {
 
 			let helpText = "";
 			if (errorMsg.includes("already exists")) {
-				helpText = `\n\nTip: Use ${theme.fg("accent", "/ssh remove")} first, or choose a different name.`;
+				helpText = `\n\n${t("ssh.tipRemoveFirst", { command: theme.fg("accent", "/ssh remove") })}`;
 			}
 
-			this.ctx.showError(`Failed to add host: ${errorMsg}${helpText}`);
+			this.ctx.showError(`${t("ssh.errAddFailed", { error: errorMsg })}${helpText}`);
 		}
 	}
 
@@ -269,20 +272,20 @@ export class SSHCommandController {
 				this.#showMessage(
 					[
 						"",
-						theme.fg("muted", "No SSH hosts configured."),
+						theme.fg("muted", t("ssh.listEmpty")),
 						"",
-						`Use ${theme.fg("accent", "/ssh add")} to add a host.`,
+						t("ssh.listEmptyHint", { command: theme.fg("accent", "/ssh add") }),
 						"",
 					].join("\n"),
 				);
 				return;
 			}
 
-			const lines: string[] = ["", theme.bold("Configured SSH Hosts"), ""];
+			const lines: string[] = ["", theme.bold(t("ssh.listTitle")), ""];
 
 			// Show user-level hosts
 			if (userHosts.length > 0) {
-				lines.push(theme.fg("accent", "User level") + theme.fg("muted", ` (~/.omp/agent/ssh.json):`));
+				lines.push(theme.fg("accent", t("mcp.scopeUserLevel")) + theme.fg("muted", ` (~/.omp/agent/ssh.json):`));
 				for (const name of userHosts) {
 					const config = userConfig.hosts![name];
 					const details = this.#formatHostDetails(config);
@@ -293,7 +296,7 @@ export class SSHCommandController {
 
 			// Show project-level hosts
 			if (projectHosts.length > 0) {
-				lines.push(theme.fg("accent", "Project level") + theme.fg("muted", ` (.omp/ssh.json):`));
+				lines.push(theme.fg("accent", t("mcp.scopeProjectLevel")) + theme.fg("muted", ` (.omp/ssh.json):`));
 				for (const name of projectHosts) {
 					const config = projectConfig.hosts![name];
 					const details = this.#formatHostDetails(config);
@@ -306,9 +309,9 @@ export class SSHCommandController {
 			if (discoveredHosts.length > 0) {
 				for (const { providerName, shortPath, items: hosts } of groupBySource(discoveredHosts, h => h._source)) {
 					lines.push(
-						theme.fg("accent", "Discovered") +
+						theme.fg("accent", t("ssh.listDiscovered")) +
 							theme.fg("muted", ` (${providerName}: ${shortPath}):`) +
-							theme.fg("dim", " read-only"),
+							theme.fg("dim", ` ${t("hub.entry.readOnly")}`),
 					);
 					for (const host of hosts) {
 						const details = this.#formatHostDetails({
@@ -324,7 +327,7 @@ export class SSHCommandController {
 
 			this.#showMessage(lines.join("\n"));
 		} catch (error) {
-			this.ctx.showError(`Failed to list hosts: ${error instanceof Error ? error.message : String(error)}`);
+			this.ctx.showError(t("ssh.errListFailed", { error: error instanceof Error ? error.message : String(error) }));
 		}
 	}
 
@@ -352,7 +355,7 @@ export class SSHCommandController {
 		}
 		const { name, scope } = parsed.value;
 		if (!name) {
-			this.ctx.showError("Host name required. Usage: /ssh remove <name> [--scope project|user]");
+			this.ctx.showError(t("ssh.errHostNameRequired", { usage: REMOVE_USAGE }));
 			return;
 		}
 
@@ -361,18 +364,18 @@ export class SSHCommandController {
 			const filePath = getSSHConfigPath(scope, cwd);
 			const config = await readSSHConfigFile(filePath);
 			if (!config.hosts?.[name]) {
-				this.ctx.showError(`Host "${name}" not found in ${scope} config.`);
+				this.ctx.showError(t("ssh.errHostNotFoundInScope", { name, scope }));
 				return;
 			}
 
 			await removeSSHHost(filePath, name);
 			resetCapabilities();
 
-			this.#showMessage(
-				["", theme.fg("success", `- Removed SSH host "${name}" from ${scope} config`), ""].join("\n"),
-			);
+			this.#showMessage(["", theme.fg("success", `- ${t("ssh.removedHost", { name, scope })}`), ""].join("\n"));
 		} catch (error) {
-			this.ctx.showError(`Failed to remove host: ${error instanceof Error ? error.message : String(error)}`);
+			this.ctx.showError(
+				t("ssh.errRemoveFailed", { error: error instanceof Error ? error.message : String(error) }),
+			);
 		}
 	}
 

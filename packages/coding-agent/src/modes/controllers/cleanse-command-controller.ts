@@ -6,6 +6,7 @@
 import { runCleanse } from "../../cleanse";
 import type { CleanseCheckerDescriptor } from "../../cleanse/checkers";
 import type { CleanseTargetChoice } from "../../cleanse/types";
+import { t } from "../../i18n";
 import { CleansePanelComponent } from "../components/cleanse-panel";
 import type { InteractiveModeContext } from "../types";
 
@@ -23,9 +24,6 @@ interface ParsedCleanseArgs {
 	model?: string;
 	error?: string;
 }
-
-const CLEANSE_USAGE = "Usage: /cleanse [request] [--all] [--tests] [-n <agents>] [-m <model>]";
-const CUSTOM_REQUEST_OPTION = "Describe what to fix…";
 
 export class CleanseCommandController {
 	#active: CleanseRun | undefined;
@@ -57,7 +55,7 @@ export class CleanseCommandController {
 
 	async start(args: string): Promise<void> {
 		if (this.#active) {
-			this.ctx.showStatus("A /cleanse run is already active — Esc cancels it.");
+			this.ctx.showStatus(t("command.cleanse.active"));
 			return;
 		}
 		const parsed = parseCleanseArgs(args);
@@ -109,16 +107,20 @@ export class CleanseCommandController {
 	}
 
 	async #pickTarget(checkers: readonly CleanseCheckerDescriptor[]): Promise<CleanseTargetChoice> {
-		const allOption = `Run all ${checkers.length} discovered checker${checkers.length === 1 ? "" : "s"}`;
+		const allOption =
+			checkers.length === 1
+				? t("command.cleanse.runAllOne", { count: checkers.length })
+				: t("command.cleanse.runAllOther", { count: checkers.length });
+		const customRequest = t("command.cleanse.customRequest");
 		const labels = checkers.map(checker => `${checker.label} — ${checker.command}`);
-		const choice = await this.ctx.showHookSelector("Select what to cleanse", [
+		const choice = await this.ctx.showHookSelector(t("command.cleanse.selectTitle"), [
 			allOption,
 			...labels,
-			CUSTOM_REQUEST_OPTION,
+			customRequest,
 		]);
 		if (choice === undefined) return { kind: "cancel" };
 		if (choice === allOption) return { kind: "all" };
-		if (choice === CUSTOM_REQUEST_OPTION) {
+		if (choice === customRequest) {
 			const request = await this.#promptRequest();
 			return request === null ? { kind: "cancel" } : { kind: "request", request };
 		}
@@ -127,7 +129,10 @@ export class CleanseCommandController {
 	}
 
 	async #promptRequest(): Promise<string | null> {
-		const answer = await this.ctx.showHookInput("Describe what to detect and fix", 'e.g. "ts errors"');
+		const answer = await this.ctx.showHookInput(
+			t("command.cleanse.promptTitle"),
+			t("command.cleanse.promptPlaceholder"),
+		);
 		const trimmed = answer?.trim();
 		return trimmed ? trimmed : null;
 	}
@@ -143,6 +148,7 @@ export class CleanseCommandController {
 
 /** Parse `/cleanse` arguments; flag names mirror the `omp cleanse` CLI. */
 function parseCleanseArgs(args: string): ParsedCleanseArgs {
+	const usage = t("command.cleanse.usage");
 	const tokens = args.split(/\s+/).filter(Boolean);
 	const requestParts: string[] = [];
 	const parsed: ParsedCleanseArgs = { all: false, includeTests: false };
@@ -154,14 +160,14 @@ function parseCleanseArgs(args: string): ParsedCleanseArgs {
 			parsed.includeTests = true;
 		} else if (token === "--agents" || token === "-n") {
 			const value = Number(tokens[++i]);
-			if (!Number.isInteger(value) || value <= 0) return { ...parsed, error: CLEANSE_USAGE };
+			if (!Number.isInteger(value) || value <= 0) return { ...parsed, error: usage };
 			parsed.maxAgents = value;
 		} else if (token === "--model" || token === "-m") {
 			const value = tokens[++i];
-			if (!value) return { ...parsed, error: CLEANSE_USAGE };
+			if (!value) return { ...parsed, error: usage };
 			parsed.model = value;
 		} else if (token.startsWith("-") && token.length > 1 && !/^-\d/.test(token)) {
-			return { ...parsed, error: CLEANSE_USAGE };
+			return { ...parsed, error: usage };
 		} else {
 			requestParts.push(token);
 		}

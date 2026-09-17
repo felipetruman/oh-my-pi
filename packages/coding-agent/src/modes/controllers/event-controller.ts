@@ -6,6 +6,7 @@ import { formatDuration, logger, prompt, sanitizeText } from "@oh-my-pi/pi-utils
 import { INTENT_FIELD } from "@oh-my-pi/pi-wire";
 import { extractTextContent } from "../../commit/utils";
 import { settings } from "../../config/settings";
+import { t } from "../../i18n";
 import { AssistantMessageComponent } from "../../modes/components/assistant-message";
 import { detectCacheInvalidation } from "../../modes/components/cache-invalidation-marker";
 import {
@@ -1940,10 +1941,9 @@ export class EventController {
 			// This is the render boundary, not the persisted result: the stored
 			// error stays full-fidelity for the transcript and for replays.
 			const detail = textContent ? previewLine(sanitizeText(textContent), TRUNCATE_LENGTHS.LINE) : "";
-			this.ctx.showWarning(
-				`Todo update failed${detail ? `: ${detail}` : ". Progress may be stale until todo succeeds."}`,
-				{ hideWithToolActivity: true },
-			);
+			this.ctx.showWarning(detail ? t("command.event.todoFailed", { detail }) : t("command.event.todoFailedStale"), {
+				hideWithToolActivity: true,
+			});
 		}
 		// Plan approval rides a `write` to xd://propose: the dispatch metadata on
 		// the write details carries the approval payload as `inner`.
@@ -2103,7 +2103,7 @@ export class EventController {
 	 * label carries no dangling whitespace.
 	 */
 	#maintenanceEscHint(): string {
-		return this.ctx.focusedAgentId ? "" : " (esc to cancel)";
+		return this.ctx.focusedAgentId ? "" : t("command.maintenance.escHint");
 	}
 
 	async #handleAutoCompactionStart(
@@ -2116,22 +2116,22 @@ export class EventController {
 		this.ctx.statusContainer.disposeChildren();
 		const reasonText =
 			event.reason === "overflow"
-				? "Context overflow detected, "
+				? t("command.maintenance.reasonOverflow")
 				: event.reason === "incomplete"
-					? "Response incomplete, "
+					? t("command.maintenance.reasonIncomplete")
 					: event.reason === "idle"
-						? "Idle "
+						? t("command.maintenance.reasonIdle")
 						: "";
 		const actionLabel =
 			event.action === "remote"
-				? "Auto server compaction"
+				? t("command.maintenance.remote")
 				: event.action === "handoff"
-					? "Auto-handoff"
+					? t("command.maintenance.handoff")
 					: event.action === "shake"
-						? "Auto-shake"
+						? t("command.maintenance.shake")
 						: event.action === "snapcompact"
-							? "Auto-snapcompact"
-							: "Auto context-full maintenance";
+							? t("command.maintenance.snapcompact")
+							: t("command.maintenance.contextFull");
 		this.ctx.autoCompactionLoader = new Loader(
 			this.ctx.ui,
 			spinner => theme.fg("accent", spinner),
@@ -2159,14 +2159,14 @@ export class EventController {
 		if (event.aborted) {
 			this.ctx.showStatus(
 				isHandoffAction
-					? "Auto-handoff cancelled"
+					? t("command.maintenance.cancelledHandoff")
 					: isRemoteAction
-						? "Auto server compaction cancelled"
+						? t("command.maintenance.cancelledRemote")
 						: isShakeAction
-							? "Auto-shake cancelled"
+							? t("command.maintenance.cancelledShake")
 							: isSnapcompactAction
-								? "Auto-snapcompact cancelled"
-								: "Auto context-full maintenance cancelled",
+								? t("command.maintenance.cancelledSnapcompact")
+								: t("command.maintenance.cancelledContextFull"),
 			);
 		} else if (isShakeAction) {
 			// Shake produces no CompactionResult; rebuild on success, suppress benign skips.
@@ -2185,7 +2185,7 @@ export class EventController {
 				this.ctx.rebuildChatFromMessages();
 				this.ctx.statusLine.invalidate();
 				this.ctx.ui.requestRender();
-				this.ctx.showStatus("Auto-shake completed");
+				this.ctx.showStatus(t("command.maintenance.completedShake"));
 			}
 		} else if (event.result) {
 			this.ctx.lastAssistantUsage = undefined;
@@ -2213,16 +2213,16 @@ export class EventController {
 			this.ctx.statusLine.invalidate();
 			await this.ctx.reloadTodos();
 			this.ctx.ui.requestRender(true, { clearScrollback: true });
-			this.ctx.showStatus("Auto-handoff completed");
+			this.ctx.showStatus(t("command.maintenance.completedHandoff"));
 		} else if (event.skipped) {
 			// Benign skip: no model selected, no candidate models available, or nothing
 			// to compact yet. Not a failure — suppress the warning.
 		} else if (isSnapcompactAction) {
-			this.ctx.showWarning("Auto-snapcompact maintenance failed; continuing without maintenance");
+			this.ctx.showWarning(t("command.maintenance.failedSnapcompact"));
 		} else if (isRemoteAction) {
-			this.ctx.showWarning("Auto server compaction failed; continuing without maintenance");
+			this.ctx.showWarning(t("command.maintenance.failedRemote"));
 		} else {
-			this.ctx.showWarning("Auto context-full maintenance failed; continuing without maintenance");
+			this.ctx.showWarning(t("command.maintenance.failedContextFull"));
 		}
 		await this.ctx.flushCompactionQueue({ willRetry: event.willRetry });
 		this.#ensureWorkingLoaderWhileStreaming();
@@ -2255,14 +2255,15 @@ export class EventController {
 			this.ctx.clearPinnedError();
 		}
 		const retryStartMs = Date.now();
-		const retryLabel = `Retrying (${event.attempt}/${event.maxAttempts})`;
+		const retryLabel = t("command.retry.label", { attempt: event.attempt, max: event.maxAttempts });
 		this.ctx.retryLoader = new Loader(
 			this.ctx.ui,
 			spinner => theme.fg("warning", spinner),
 			text => theme.fg("muted", text),
 			() => {
 				const remaining = Math.max(0, event.delayMs - (Date.now() - retryStartMs));
-				return `${retryLabel} in ${formatDuration(remaining)}…${this.#maintenanceEscHint()}`;
+				const countdown = t("command.retry.countdown", { label: retryLabel, delay: formatDuration(remaining) });
+				return `${countdown}${this.#maintenanceEscHint()}`;
 			},
 			getSymbolTheme().spinnerFrames,
 		);
@@ -2315,12 +2316,20 @@ export class EventController {
 		if (!event.success) {
 			if (terminalFailurePinned) {
 				const terminalError = this.#restorePinnedErrorInline
-					? `Retry failed after ${event.attempt} attempts: ${event.finalError || pinnedError || "Unknown error"}`
+					? t("command.retry.failed", {
+							attempt: event.attempt,
+							error: event.finalError || pinnedError || t("command.unknownError"),
+						})
 					: (pinnedError ?? event.finalError);
 				if (terminalError) this.ctx.showPinnedError(terminalError);
 				this.#restorePinnedErrorInline = true;
 			} else {
-				this.ctx.showError(`Retry failed after ${event.attempt} attempts: ${event.finalError || "Unknown error"}`);
+				this.ctx.showError(
+					t("command.retry.failed", {
+						attempt: event.attempt,
+						error: event.finalError || t("command.unknownError"),
+					}),
+				);
 			}
 		}
 		this.#ensureWorkingLoaderWhileStreaming();
@@ -2336,7 +2345,7 @@ export class EventController {
 	async #handleRetryFallbackSucceeded(
 		event: Extract<AgentSessionEvent, { type: "retry_fallback_succeeded" }>,
 	): Promise<void> {
-		this.ctx.showStatus(`Fallback succeeded on ${event.model}`);
+		this.ctx.showStatus(t("command.fallback.succeeded", { model: event.model }));
 	}
 
 	async #handleTtsrTriggered(event: Extract<AgentSessionEvent, { type: "ttsr_triggered" }>): Promise<void> {
@@ -2460,7 +2469,9 @@ export class EventController {
 			if (this.#idleRecapAbort !== abort || abort.signal.aborted || !this.#idleConditionsHold()) return;
 			const recap = previewLine(replyText, TRUNCATE_LENGTHS.RECAP);
 			if (!recap) return;
-			this.ctx.showStatus(theme.fg("dim", theme.italic(`※ recap: ${recap}`)), { dim: false });
+			this.ctx.showStatus(theme.fg("dim", theme.italic(t("command.recap.prefix", { text: recap }))), {
+				dim: false,
+			});
 		} catch (error) {
 			if (!abort.signal.aborted) logger.debug("Idle recap turn failed", { error: String(error) });
 		} finally {
@@ -2525,7 +2536,7 @@ export class EventController {
 		const sessionName = this.ctx.sessionManager.getSessionName();
 		TERMINAL.sendNotification({
 			title: sessionName || "Oh My Pi",
-			body: "Stopped with error",
+			body: t("command.notify.error"),
 			type: "error",
 			actions: "focus",
 		});
@@ -2550,7 +2561,7 @@ export class EventController {
 		const sessionName = this.ctx.sessionManager.getSessionName();
 		TERMINAL.sendNotification({
 			title: sessionName || "Oh My Pi",
-			body: "Complete",
+			body: t("command.notify.complete"),
 			type: "completion",
 			actions: "focus",
 		});
