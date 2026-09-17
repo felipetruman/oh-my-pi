@@ -20,6 +20,7 @@ import {
 	type OverlayOptions,
 	visibleWidth,
 } from "@oh-my-pi/pi-tui";
+import { t } from "../../i18n";
 import { formatDuration } from "../../slash-commands/helpers/format";
 import { theme } from "../theme/theme";
 import { matchesAppInterrupt } from "../utils/keybinding-matchers";
@@ -51,13 +52,6 @@ const BAR_GAP = 4;
 const MIN_FULL_WIDTH = 64;
 const MIN_FULL_HEIGHT = 18;
 
-const TITLE = "P A U S E D";
-const BODY_LINES = [
-	"Main agent, subagents, and advisor hold at their next step.",
-	"In-flight calls finish; nothing new starts until you resume.",
-] as const;
-const RESUME_HINT = "esc · enter · space — resume";
-
 function centerLine(line: string, width: number): string {
 	const pad = Math.max(0, Math.floor((width - visibleWidth(line)) / 2));
 	return pad > 0 ? " ".repeat(pad) + line : line;
@@ -80,16 +74,18 @@ function formatClock(ms: number): string {
 export function renderPauseScreen(width: number, height: number, elapsedMs: number, sessionName?: string): string[] {
 	const compact = width < MIN_FULL_WIDTH || height < MIN_FULL_HEIGHT;
 	const content: string[] = [];
+	const title = t("pause.title");
+	const pausedFor = t("pause.pausedFor", { time: formatClock(elapsedMs) });
 
 	if (compact) {
 		if (sessionName) {
 			content.push(centerLine(theme.bold(sessionName), width));
 			content.push("");
 		}
-		content.push(centerLine(theme.bold(theme.fg("accent", `▌▌ ${TITLE}`)), width));
+		content.push(centerLine(theme.bold(theme.fg("accent", `▌▌ ${title}`)), width));
 		content.push("");
-		content.push(centerLine(theme.fg("dim", `paused for ${formatClock(elapsedMs)}`), width));
-		content.push(centerLine(theme.fg("dim", "esc to resume"), width));
+		content.push(centerLine(theme.fg("dim", pausedFor), width));
+		content.push(centerLine(theme.fg("dim", t("pause.escToResume")), width));
 	} else {
 		if (sessionName) {
 			content.push(centerLine(theme.bold(sessionName), width));
@@ -102,15 +98,15 @@ export function renderPauseScreen(width: number, height: number, elapsedMs: numb
 			content.push(centerLine(theme.fg("accent", glyphRow), width));
 		}
 		content.push("");
-		content.push(centerLine(theme.bold(theme.fg("accent", TITLE)), width));
+		content.push(centerLine(theme.bold(theme.fg("accent", title)), width));
 		content.push("");
-		for (const line of BODY_LINES) {
+		for (const line of [t("pause.bodyHold"), t("pause.bodyInFlight")]) {
 			content.push(centerLine(theme.fg("muted", line), width));
 		}
 		content.push("");
-		content.push(centerLine(theme.fg("dim", `paused for ${formatClock(elapsedMs)}`), width));
+		content.push(centerLine(theme.fg("dim", pausedFor), width));
 		content.push("");
-		content.push(centerLine(theme.fg("dim", RESUME_HINT), width));
+		content.push(centerLine(theme.fg("dim", t("pause.resumeHint")), width));
 	}
 
 	const topPad = Math.max(0, Math.floor((height - content.length) / 2));
@@ -203,7 +199,7 @@ export async function runPauseScreen(host: PauseScreenHost): Promise<void> {
 		overlay.hide();
 		const heldMs = agentPauseGate.resume();
 		if (heldMs !== undefined) {
-			host.showStatus(`Resumed after ${formatDuration(heldMs)} — agents are running again.`);
+			host.showStatus(t("pause.resumedAfter", { duration: formatDuration(heldMs) }));
 		}
 	}
 }

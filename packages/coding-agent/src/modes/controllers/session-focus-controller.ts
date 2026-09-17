@@ -1,4 +1,5 @@
 import type { AssistantMessage } from "@oh-my-pi/pi-ai";
+import { t } from "../../i18n";
 import { AgentLifecycleManager } from "../../registry/agent-lifecycle";
 import { AgentRegistry, MAIN_AGENT_ID, type AgentRef, type RegistryEvent } from "../../registry/agent-registry";
 import type { AgentSession } from "../../session/agent-session";
@@ -136,7 +137,9 @@ export class SessionFocusController {
 		this.#focusedAgentId = undefined;
 		this.#attachedSession = undefined;
 		const attached = await this.#attach(this.ctx.session);
-		if (attached && this.#focusedAgentId === undefined) this.ctx.showStatus("Returned to main session");
+		if (attached && this.#focusedAgentId === undefined) {
+			this.ctx.showStatus(t("hud.status.returnedToMainSession"));
+		}
 	}
 
 	dispose(): void {

@@ -6,6 +6,7 @@ import { logger } from "@oh-my-pi/pi-utils";
 import type { AdvisorMessageDetails } from "../../advisor";
 import { COLLAB_PROMPT_MESSAGE_TYPE, type CollabPromptDetails } from "../../collab/protocol";
 import { settings } from "../../config/settings";
+import { t } from "../../i18n";
 import { createAdvisorMessageCard } from "../../modes/components/advisor-message";
 import { AssistantMessageComponent } from "../../modes/components/assistant-message";
 import { createBackgroundTanDispatchBlock } from "../../modes/components/background-tan-message";
@@ -1029,8 +1030,11 @@ export class UiHelpers {
 				}
 			}
 			if (compactionCount > 0) {
-				const times = compactionCount === 1 ? "1 time" : `${compactionCount} times`;
-				this.ctx.showStatus(`Session compacted ${times}`);
+				this.ctx.showStatus(
+					compactionCount === 1
+						? t("hud.sessionCompactedOne")
+						: t("hud.sessionCompactedOther", { count: compactionCount }),
+				);
 			}
 			if (options.clearTerminalHistory) {
 				this.ctx.ui.requestRender(true, { clearScrollback: true });
@@ -1059,12 +1063,16 @@ export class UiHelpers {
 	}
 
 	showError(errorMessage: string): void {
-		const text = new Text(`Error: ${errorMessage}`, 1, 0).setStyleFn(t => theme.fg("error", t));
+		const text = new Text(t("hud.errorPrefix", { message: errorMessage }), 1, 0).setStyleFn(str =>
+			theme.fg("error", str),
+		);
 		this.ctx.present([new Spacer(1), text]);
 	}
 
 	showWarning(warningMessage: string, options?: { hideWithToolActivity?: boolean }): void {
-		const text = new Text(`Warning: ${warningMessage}`, 1, 0).setStyleFn(t => theme.fg("warning", t));
+		const text = new Text(t("hud.warningPrefix", { message: warningMessage }), 1, 0).setStyleFn(str =>
+			theme.fg("warning", str),
+		);
 		const content = [new Spacer(1), text];
 		this.ctx.present(options?.hideWithToolActivity ? new ToolActivityContainer(content) : content);
 	}
@@ -1072,8 +1080,8 @@ export class UiHelpers {
 	showNewVersionNotification(newVersion: string): void {
 		const block = new TranscriptBlock();
 		block.addChild(new DynamicBorder(text => theme.fg("warning", text)));
-		const title = "Update Available";
-		const prefix = `New version ${newVersion} is available. Run: `;
+		const title = t("hud.updateAvailableTitle");
+		const prefix = t("hud.updateAvailableBody", { version: newVersion });
 		const command = "omp update";
 		block.addChild(
 			new Text(`${title}\n${prefix}${command}`, 1, 0).setStyleFn(
@@ -1100,8 +1108,8 @@ export class UiHelpers {
 		}
 
 		const groups = [
-			{ label: "Steering", messages: steeringMessages },
-			{ label: "After yield", messages: followUpMessages },
+			{ label: t("hud.queuedSteering"), messages: steeringMessages },
+			{ label: t("hud.queuedAfterYield"), messages: followUpMessages },
 		].filter(group => group.messages.length > 0);
 		if (groups.length > 0) {
 			this.ctx.pendingMessagesContainer.addChild(new Spacer(1));
@@ -1115,7 +1123,7 @@ export class UiHelpers {
 				}
 			}
 			const dequeueKey = this.ctx.keybindings.getDisplayString("app.message.dequeue") || "Alt+Up";
-			const hintText = theme.fg("dim", `  ${theme.tree.hook} ${dequeueKey} to edit`);
+			const hintText = theme.fg("dim", `  ${theme.tree.hook} ${t("hud.dequeueEditHint", { key: dequeueKey })}`);
 			this.ctx.pendingMessagesContainer.addChild(new TruncatedText(hintText, 1, 0));
 		}
 		this.ctx.ui.requestComponentRender(this.ctx.pendingMessagesContainer);
@@ -1126,9 +1134,7 @@ export class UiHelpers {
 		this.ctx.compactionQueuedMessages.push({ text, mode, images: queuedImages } as CompactionQueuedMessage);
 		this.ctx.editor.clearDraft(text);
 		this.ctx.updatePendingMessagesDisplay();
-		this.ctx.showStatus(
-			queuedImages ? "Queued message with image for after compaction" : "Queued message for after compaction",
-		);
+		this.ctx.showStatus(queuedImages ? t("hud.queuedWithImageForCompaction") : t("hud.queuedForCompaction"));
 	}
 
 	/**

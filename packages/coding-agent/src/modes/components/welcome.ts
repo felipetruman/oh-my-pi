@@ -2,6 +2,7 @@ import { TERMINAL } from "@oh-my-pi/pi-tui/terminal-capabilities";
 import type { Component } from "@oh-my-pi/pi-tui/tui";
 import { padding, replaceTabs, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@oh-my-pi/pi-tui/utils";
 import { APP_NAME } from "@oh-my-pi/pi-utils/dirs";
+import { t } from "../../i18n";
 import { theme } from "../../modes/theme/theme";
 import tipsText from "./tips.txt" with { type: "text" };
 
@@ -24,12 +25,9 @@ export const WELCOME_SESSION_SLOTS = 4;
 export const WELCOME_LSP_SLOTS = 4;
 
 /** Trailing marker that flags a tip as a "what's new" callout. Stripped before
- *  wrapping (with any preceding whitespace) and replaced by {@link NEW_TAG_TEXT}
- *  painted as a shimmering rainbow. Non-global so `.test` stays stateless. */
+ *  wrapping (with any preceding whitespace) and replaced by the `welcome.newTag`
+ *  label painted as a shimmering rainbow. Non-global so `.test` stays stateless. */
 const NEW_TIP_MARKER = /\s*\[NEW\]\s*$/;
-
-/** Visible text rendered in place of {@link NEW_TIP_MARKER}. */
-const NEW_TAG_TEXT = "NEW!";
 
 /** Milliseconds for one full hue rotation of the rainbow "NEW!" tag. */
 const NEW_GLOW_PERIOD_MS = 1500;
@@ -55,14 +53,14 @@ export function pickWeightedTip(tips: readonly string[], r: number): string {
 
 type ColorEncoding = "ansi-16m" | "ansi-256";
 
-/** Paint each glyph of {@link NEW_TAG_TEXT} on a moving HSL rainbow. `phase`
+/** Paint each glyph of the `welcome.newTag` label on a moving HSL rainbow. `phase`
  *  rotates the hue offset cyclically; successive renders with increasing phase
  *  shimmer, while a fixed phase yields a still rainbow. */
 function renderNewTag(phase: number, encoding: ColorEncoding): string {
 	const bold = "\x1b[1m";
 	const reset = "\x1b[0m";
 	const wrapped = ((phase % 1) + 1) % 1;
-	const chars = [...NEW_TAG_TEXT];
+	const chars = [...t("welcome.newTag")];
 	let out = bold;
 	let prev = "";
 	for (let i = 0; i < chars.length; i++) {
@@ -77,7 +75,7 @@ function renderNewTag(phase: number, encoding: ColorEncoding): string {
 	return out + reset;
 }
 export function renderWelcomeTip(tip: string, boxWidth: number, phase = 0): string[] {
-	const label = "Tip: ";
+	const label = t("welcome.tipLabel");
 	const labelWidth = visibleWidth(label);
 	const bodyBudget = boxWidth - 1 - labelWidth; // 1 = leading indent
 	if (bodyBudget < 8) return [];
@@ -106,7 +104,7 @@ export function renderWelcomeTip(tip: string, boxWidth: number, phase = 0): stri
 		// styled glyphs never overflow or reflow the wrapped body.
 		const encoding: ColorEncoding = TERMINAL.trueColor ? "ansi-16m" : "ansi-256";
 		const tag = renderNewTag(phase, encoding);
-		const tagWidth = 1 + visibleWidth(NEW_TAG_TEXT); // 1 = space separator
+		const tagWidth = 1 + visibleWidth(t("welcome.newTag")); // 1 = space separator
 		const lastLine = lines[lines.length - 1];
 		if (lastLine !== undefined && visibleWidth(lastLine) + tagWidth <= boxWidth) {
 			lines[lines.length - 1] = `${lastLine} ${tag}`;
@@ -159,7 +157,7 @@ export class WelcomeComponent implements Component {
 		this.#nagRoll ??= Math.random();
 		this.#tipRoll ??= Math.random();
 		if (theme.getSymbolPreset() === "unicode" && this.#nagRoll < 0.1) {
-			return "Please use nerdfont 😭.";
+			return t("welcome.nerdfontNag");
 		}
 		return pickWeightedTip(TIPS, this.#tipRoll) || undefined;
 	}
@@ -271,7 +269,8 @@ export class WelcomeComponent implements Component {
 		// Dynamic model/provider labels are truncated inside the fixed column.
 		// Letting them influence the responsive breakpoint changes the box height
 		// when authoritative session data replaces the empty prepaint labels.
-		const leftMinContentWidth = Math.max(minLeftCol, visibleWidth("Welcome back!"));
+		const welcomeTitle = t("welcome.back");
+		const leftMinContentWidth = Math.max(minLeftCol, visibleWidth(welcomeTitle));
 		const desiredLeftCol = Math.max(
 			Math.min(preferredLeftCol, Math.max(minLeftCol, Math.floor(dualContentWidth * 0.35))),
 			leftMinContentWidth,
@@ -291,7 +290,7 @@ export class WelcomeComponent implements Component {
 		// Left column - centered content
 		const leftLines = [
 			"",
-			this.#centerText(theme.bold("Welcome back!"), leftCol),
+			this.#centerText(theme.bold(welcomeTitle), leftCol),
 			"",
 			...logoColored.map(l => this.#centerText(l, leftCol)),
 			"",
@@ -306,7 +305,7 @@ export class WelcomeComponent implements Component {
 		// Recent sessions content
 		const sessionLines: string[] = [];
 		if (this.recentSessions.length === 0) {
-			sessionLines.push(` ${theme.fg("dim", "No recent sessions")}`);
+			sessionLines.push(` ${theme.fg("dim", t("welcome.noRecentSessions"))}`);
 		} else {
 			// Reserve width for the bullet prefix (" • ") and the trailing " (timeAgo)"
 			// so the relative time is never the part that gets truncated. The name
@@ -332,7 +331,7 @@ export class WelcomeComponent implements Component {
 		// LSP servers content
 		const lspLines: string[] = [];
 		if (this.lspServers.length === 0) {
-			lspLines.push(` ${theme.fg("dim", "No LSP servers")}`);
+			lspLines.push(` ${theme.fg("dim", t("welcome.noLspServers"))}`);
 		} else {
 			for (const server of this.lspServers.slice(0, WELCOME_LSP_SLOTS)) {
 				const icon =
@@ -354,16 +353,16 @@ export class WelcomeComponent implements Component {
 
 		// Right column
 		const rightLines = [
-			` ${theme.bold(theme.fg("accent", "Tips"))}`,
-			` ${theme.fg("dim", "#")}${theme.fg("muted", " for prompt actions")}`,
-			` ${theme.fg("dim", "/")}${theme.fg("muted", " for commands")}`,
-			` ${theme.fg("dim", "!")}${theme.fg("muted", " to run bash")}`,
-			` ${theme.fg("dim", "$")}${theme.fg("muted", " to run python")}`,
+			` ${theme.bold(theme.fg("accent", t("welcome.tips")))}`,
+			` ${theme.fg("dim", "#")}${theme.fg("muted", t("welcome.hintPromptActions"))}`,
+			` ${theme.fg("dim", "/")}${theme.fg("muted", t("welcome.hintCommands"))}`,
+			` ${theme.fg("dim", "!")}${theme.fg("muted", t("welcome.hintBash"))}`,
+			` ${theme.fg("dim", "$")}${theme.fg("muted", t("welcome.hintPython"))}`,
 			separator,
-			` ${theme.bold(theme.fg("accent", "LSP Servers"))}`,
+			` ${theme.bold(theme.fg("accent", t("welcome.lspServers")))}`,
 			...lspLines,
 			separator,
-			` ${theme.bold(theme.fg("accent", "Recent sessions"))}`,
+			` ${theme.bold(theme.fg("accent", t("welcome.recentSessions")))}`,
 			...sessionLines,
 			"",
 		];

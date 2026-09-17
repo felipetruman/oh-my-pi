@@ -11,6 +11,7 @@ import {
 	relativePathWithinNormalizedRoot,
 	relativePathWithinRoot,
 } from "@oh-my-pi/pi-utils";
+import { t, type TranslationKey } from "../../../i18n";
 import { type SymbolKey, type Theme, type ThemeColor, theme } from "../../../modes/theme/theme";
 import { shortenPath, TRUNCATE_LENGTHS, truncateToWidth } from "../../../tools/render-utils";
 import { fileHyperlink } from "../../../tui/hyperlink";
@@ -340,7 +341,7 @@ function renderGoalMode(ctx: SegmentContext, mode: { enabled: boolean; paused: b
 			break;
 	}
 
-	const parts: string[] = [withIcon(icon, "Goal")];
+	const parts: string[] = [withIcon(icon, t("statusLine.goal"))];
 	const showBudget = ctx.session.settings.get("goal.statusInFooter") === true;
 	if (showBudget && goal) {
 		parts.push(statusValue(ctx, formatGoalBudget(goal.tokensUsed, goal.tokenBudget)));
@@ -362,19 +363,29 @@ function formatLoopLimit(
 	const hours = Math.floor(totalSeconds / 3_600);
 	const minutes = Math.floor((totalSeconds % 3_600) / 60);
 	const seconds = totalSeconds % 60;
-	if (hours > 0) return `${hours}h${minutes > 0 ? `${minutes}m` : ""} left`;
-	if (minutes > 0) return `${minutes}m${seconds > 0 ? `${seconds}s` : ""} left`;
-	return `${seconds}s left`;
+	if (hours > 0) return t("statusLine.loopTimeLeft", { time: `${hours}h${minutes > 0 ? `${minutes}m` : ""}` });
+	if (minutes > 0) return t("statusLine.loopTimeLeft", { time: `${minutes}m${seconds > 0 ? `${seconds}s` : ""}` });
+	return t("statusLine.loopTimeLeft", { time: `${seconds}s` });
 }
+
+/**
+ * On-screen word for each loop state. The state ids stay internal — only the
+ * label the segment prints is localized.
+ */
+const LOOP_STATE_KEYS: Record<NonNullable<SegmentContext["loopMode"]>["state"], TranslationKey> = {
+	paused: "statusLine.loopPaused",
+	running: "statusLine.loopRunning",
+	waiting: "statusLine.loopWaiting",
+};
 
 const modeSegment: StatusLineSegment = {
 	id: "mode",
 	render(ctx) {
-		const pauseSuffix = theme.icon.pause ? ` ${theme.icon.pause}` : " (paused)";
+		const pauseSuffix = theme.icon.pause ? ` ${theme.icon.pause}` : t("statusLine.pausedSuffix");
 
 		const plan = ctx.planMode;
 		if (plan && (plan.enabled || plan.paused)) {
-			const label = plan.paused ? `Plan${pauseSuffix}` : "Plan";
+			const label = plan.paused ? `${t("statusLine.plan")}${pauseSuffix}` : t("statusLine.plan");
 			const content = withIcon(theme.icon.plan, label);
 			return {
 				content: plan.paused ? theme.fg("warning", content) : accentFg(ctx, "accent", content),
@@ -384,7 +395,7 @@ const modeSegment: StatusLineSegment = {
 
 		const prewalk = ctx.prewalk;
 		if (prewalk?.enabled) {
-			const content = withIcon(theme.icon.prewalk, "Prewalk");
+			const content = withIcon(theme.icon.prewalk, t("statusLine.prewalk"));
 			return { content: accentFg(ctx, "accent", content), visible: true };
 		}
 
@@ -395,7 +406,7 @@ const modeSegment: StatusLineSegment = {
 
 		const vibe = ctx.vibeMode;
 		if (vibe?.enabled) {
-			const content = withIcon(theme.icon.agents, "Vibe");
+			const content = withIcon(theme.icon.agents, t("statusLine.vibe"));
 			return { content: accentFg(ctx, "accent", content), visible: true };
 		}
 
@@ -403,7 +414,7 @@ const modeSegment: StatusLineSegment = {
 		if (loop) {
 			const icon = loop.state === "paused" ? theme.icon.pause || theme.icon.loop : theme.icon.loop;
 			const color: ThemeColor = loop.state === "paused" ? "warning" : "customMessageLabel";
-			const parts = [withIcon(icon, `Loop ${statusValue(ctx, loop.state)}`)];
+			const parts = [withIcon(icon, `${t("statusLine.loop")} ${statusValue(ctx, t(LOOP_STATE_KEYS[loop.state]))}`)];
 			const limit = formatLoopLimit(loop.limit, ctx.now?.getTime());
 			if (limit) parts.push(statusValue(ctx, limit));
 			if (loop.condition) {
@@ -720,7 +731,7 @@ const sessionSegment: StatusLineSegment = {
 	render(ctx) {
 		const sessionManager = ctx.session.sessionManager;
 		const sessionId = sessionManager?.getSessionId?.();
-		const display = statusValue(ctx, sessionId?.slice(0, 8) || "new");
+		const display = statusValue(ctx, sessionId?.slice(0, 8) || t("statusLine.sessionNew"));
 
 		return { content: withIcon(theme.icon.session, display), visible: true };
 	},
@@ -799,7 +810,10 @@ const collabSegment: StatusLineSegment = {
 	render(ctx) {
 		if (!ctx.collab) return { content: "", visible: false };
 		const participants = statusValue(ctx, `${ctx.collab.participantCount}`);
-		const label = ctx.collab.role === "host" ? `⇄ collab:${participants}` : `⇄ collab guest:${participants}`;
+		const label =
+			ctx.collab.role === "host"
+				? `⇄ collab:${participants}`
+				: `⇄ collab ${t("statusLine.collabGuest")}:${participants}`;
 		return { content: accentFg(ctx, "accent", label), visible: true };
 	},
 };
