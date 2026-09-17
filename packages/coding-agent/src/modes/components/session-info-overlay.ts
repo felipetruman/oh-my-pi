@@ -1,9 +1,9 @@
 import { type Component, Ellipsis, matchesKey, ScrollView, Text, truncateToWidth } from "@oh-my-pi/pi-tui";
+import { t } from "../../i18n";
 import { theme } from "../theme/theme";
 import { matchesSelectCancel } from "../utils/keybinding-matchers";
 import { OverlayPanel, PanelDivider } from "./overlay-box";
 
-const FOOTER_HINT = "↑/↓ scroll · Esc close";
 const PANEL_CHROME_ROWS = 4;
 
 /** Terminal surface needed to size the session info viewport. */
@@ -38,9 +38,9 @@ export class SessionInfoOverlay implements Component {
 				thumb: text => theme.fg("accent", text),
 			},
 		});
-		this.#footer = new Text(FOOTER_HINT, 0, 0);
+		this.#footer = new Text(t("session.info.footerHint"), 0, 0);
 		this.#footer.setStyleFn(text => theme.fg("dim", text));
-		this.#panel = new OverlayPanel("Session Info");
+		this.#panel = new OverlayPanel(t("session.info.title"));
 		this.#panel.addChild(this.#scrollView);
 		this.#panel.addChild(new PanelDivider());
 		this.#panel.addChild(this.#footer);
@@ -74,7 +74,7 @@ export class SessionInfoOverlay implements Component {
 
 	render(width: number): readonly string[] {
 		const innerWidth = Math.max(1, width - 4);
-		this.#footer.setText(truncateToWidth(FOOTER_HINT, innerWidth));
+		this.#footer.setText(truncateToWidth(t("session.info.footerHint"), innerWidth));
 
 		const maxBodyHeight = Math.max(1, this.#host.terminal.rows - PANEL_CHROME_ROWS);
 		const fullWidthInfoLines = this.#info.render(innerWidth);

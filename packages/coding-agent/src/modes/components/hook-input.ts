@@ -2,6 +2,7 @@
  * Simple text input component for hooks.
  */
 import { Input, matchesKey, Spacer, Text, type TUI } from "@oh-my-pi/pi-tui";
+import { t } from "../../i18n";
 import { theme } from "../../modes/theme/theme";
 import { matchesAppInterrupt } from "../../modes/utils/keybinding-matchers";
 import { CountdownTimer } from "./countdown-timer";
@@ -50,7 +51,7 @@ export class HookInputComponent extends OverlayPanel {
 		this.#input = new Input();
 		this.addChild(this.#input);
 		this.addChild(new Spacer(1));
-		this.addChild(new Text(theme.fg("dim", "enter submit  esc cancel"), 0, 0));
+		this.addChild(new Text(theme.fg("dim", t("selector.hint.inputControls")), 0, 0));
 		this.addChild(new Spacer(1));
 	}
 

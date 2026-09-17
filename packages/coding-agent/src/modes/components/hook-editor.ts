@@ -9,6 +9,7 @@
  */
 import { Editor, type Focusable, matchesKey, Spacer, Text, type TUI } from "@oh-my-pi/pi-tui";
 import { BracketedPasteHandler } from "@oh-my-pi/pi-tui/bracketed-paste";
+import { t } from "../../i18n";
 import { getEditorTheme, theme } from "../../modes/theme/theme";
 import {
 	matchesAppExternalEditor,
@@ -89,9 +90,7 @@ export class HookEditorComponent extends OverlayPanel implements Focusable {
 		this.addChild(new Spacer(1));
 
 		// Hint
-		const hint = this.#promptStyle
-			? "enter or ctrl+q submit  esc cancel  ctrl+g external editor"
-			: "ctrl+q/ctrl+enter submit  esc cancel  ctrl+g external editor";
+		const hint = this.#promptStyle ? t("selector.hint.editorPrompt") : t("selector.hint.editorMultiline");
 		this.addChild(new Text(theme.fg("dim", hint), 0, 0));
 		this.addChild(new Spacer(1));
 	}

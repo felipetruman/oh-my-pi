@@ -9,6 +9,7 @@ import {
 	truncateToWidth,
 	visibleWidth,
 } from "@oh-my-pi/pi-tui";
+import { t } from "../../i18n";
 import { theme } from "../../modes/theme/theme";
 import {
 	matchesAppInterrupt,
@@ -65,16 +66,16 @@ function highlightTokens(text: string, tokens: string[]): string {
 /** Compact "time since" label (e.g. `now`, `5m`, `2h`, `3d`, `2w`, `6mo`, `1y`) from epoch seconds. */
 function relativeTime(epochSeconds: number): string {
 	const seconds = Math.max(0, Math.floor(Date.now() / 1000) - epochSeconds);
-	if (seconds < 60) return "now";
+	if (seconds < 60) return t("session.history.timeNow");
 	const minutes = Math.floor(seconds / 60);
-	if (minutes < 60) return `${minutes}m`;
+	if (minutes < 60) return t("session.history.timeMinutes", { count: minutes });
 	const hours = Math.floor(minutes / 60);
-	if (hours < 24) return `${hours}h`;
+	if (hours < 24) return t("session.history.timeHours", { count: hours });
 	const days = Math.floor(hours / 24);
-	if (days < 7) return `${days}d`;
-	if (days < 30) return `${Math.floor(days / 7)}w`;
-	if (days < 365) return `${Math.floor(days / 30)}mo`;
-	return `${Math.floor(days / 365)}y`;
+	if (days < 7) return t("session.history.timeDays", { count: days });
+	if (days < 30) return t("session.history.timeWeeks", { count: Math.floor(days / 7) });
+	if (days < 365) return t("session.history.timeMonths", { count: Math.floor(days / 30) });
+	return t("session.history.timeYears", { count: Math.floor(days / 365) });
 }
 
 class HistoryResultsList implements Component {
@@ -101,7 +102,7 @@ class HistoryResultsList implements Component {
 		const lines: string[] = [];
 
 		if (this.#results.length === 0) {
-			const message = this.#tokens.length > 0 ? "No matching history" : "No history yet";
+			const message = this.#tokens.length > 0 ? t("session.history.noMatches") : t("session.history.empty");
 			lines.push(theme.fg("muted", `  ${theme.status.info} ${message}`));
 			return lines;
 		}
@@ -158,7 +159,7 @@ export class HistorySearchComponent extends OverlayPanel {
 	#resultLimit = 100;
 
 	constructor(historyStorage: HistoryStorage, onSelect: (prompt: string) => void, onCancel: () => void) {
-		super("History");
+		super(t("session.history.title"));
 		this.#historyStorage = historyStorage;
 		this.#onSelect = onSelect;
 		this.#onCancel = onCancel;
@@ -177,7 +178,11 @@ export class HistorySearchComponent extends OverlayPanel {
 		this.#resultsList = new HistoryResultsList();
 
 		const dot = theme.fg("dim", theme.sep.dot);
-		const hint = [rawKeyHint("↑↓", "navigate"), rawKeyHint("enter", "select"), rawKeyHint("esc", "cancel")].join(dot);
+		const hint = [
+			rawKeyHint("↑↓", t("selector.hint.navigate")),
+			rawKeyHint("enter", t("selector.hint.select")),
+			rawKeyHint("esc", t("selector.hint.cancel")),
+		].join(dot);
 
 		this.addChild(new Spacer(1));
 		this.addChild(this.#searchInput);

@@ -19,6 +19,7 @@ import {
 	visibleWidth,
 	wrapTextWithAnsi,
 } from "@oh-my-pi/pi-tui";
+import { t } from "../../i18n";
 import { getMarkdownTheme, type ThemeColor, theme } from "../../modes/theme/theme";
 import {
 	matchesAppExternalEditor,
@@ -259,7 +260,7 @@ export class HookSelectorComponent extends OverlayPanel {
 			this.addChild(this.#listContainer);
 		}
 		this.addChild(new Spacer(1));
-		const controlsHint = opts?.helpText ?? "up/down navigate  enter select  esc cancel";
+		const controlsHint = opts?.helpText ?? t("selector.hint.controls");
 		this.addChild(new Text(theme.fg("dim", controlsHint), 0, 0));
 		this.addChild(new Spacer(1));
 

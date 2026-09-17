@@ -22,6 +22,7 @@ import type {
 	ExtensionAskDialogResultItem,
 	ExtensionAskDialogSubmitResult,
 } from "../../extensibility/extensions";
+import { t } from "../../i18n";
 import { disambiguateDisplayLabels, expandKeyHint, sanitizeCarriageReturns } from "../../tools/render-utils";
 import { getTabBarTheme } from "../shared";
 import { getMarkdownTheme, highlightCode, theme } from "../theme/theme";
@@ -39,7 +40,6 @@ import { bottomBorder, divider, row, topBorder } from "./overlay-box";
 import { handleTabSwitchKey } from "./selector-helpers";
 
 const OTHER_OPTION = "Other (type your own)";
-const SUBMIT_OPTION = "Submit";
 
 // Action rows appended by the guest race participant. An option sanitizing
 // to one of these must disambiguate identically on both sides, or the same
@@ -316,11 +316,11 @@ function renderAnswerSummary(question: ExtensionAskDialogQuestion, state: Questi
 	if (question.multi) {
 		const answers = [...selected];
 		if (state.customInput !== undefined) answers.push(`Other: “${normalizedInlineInput(state.customInput)}”`);
-		return answers.length > 0 ? answers.join(", ") : theme.fg("warning", "unanswered");
+		return answers.length > 0 ? answers.join(", ") : theme.fg("warning", t("dialog.unanswered"));
 	}
 	if (state.customInput !== undefined) return `“${normalizedInlineInput(state.customInput)}”`;
-	if (selected.length === 0) return theme.fg("warning", "unanswered");
-	return selected[0] ?? theme.fg("warning", "unanswered");
+	if (selected.length === 0) return theme.fg("warning", t("dialog.unanswered"));
+	return selected[0] ?? theme.fg("warning", t("dialog.unanswered"));
 }
 
 function clearNote(state: QuestionState): void {
@@ -369,7 +369,7 @@ function renderRowLabel(
 	const marker = `${theme.fg(checked ? "success" : "dim", optionMarker(question, checked))} `;
 	const cursor = selected ? theme.fg("accent", `${theme.nav.cursor} `) : "  ";
 	const label = renderInlineMarkdown(rowItem.label, mdTheme, t => theme.fg(color, t));
-	const noteMarker = state.note && state.noteRowKey === rowItem.key ? theme.fg("success", "  ✎ note") : "";
+	const noteMarker = state.note && state.noteRowKey === rowItem.key ? theme.fg("success", t("dialog.noteMarker")) : "";
 	// `width` is already the inner content width consumed by row(); when a
 	// scrollbar is needed, renderRows() calls this again with one less column.
 	// Keep the cursor, option marker, first wrapped label line, and optional
@@ -689,7 +689,7 @@ export class AskDialogComponent implements Component {
 					id: String(index),
 					label: questionTabLabel(question, index),
 				})),
-				{ id: "submit", label: "Submit" },
+				{ id: "submit", label: t("dialog.submit") },
 			];
 			this.#tabBar = new TabBar("", tabs, getTabBarTheme(), this.#activeTabIndex);
 			this.#tabBar.showHint = false;
@@ -698,7 +698,7 @@ export class AskDialogComponent implements Component {
 		if (this.#isSubmitTab()) {
 			this.#headerExpandable = false;
 			this.#descExpandable = false;
-			lines.push(theme.bold(theme.fg("accent", "Review answers")));
+			lines.push(theme.bold(theme.fg("accent", t("dialog.reviewAnswers"))));
 			return lines;
 		}
 		const questionIndex = this.#currentQuestionIndex();
@@ -718,28 +718,30 @@ export class AskDialogComponent implements Component {
 
 	#expandHint(): string {
 		if (!this.#headerExpandable && !this.#descExpandable) return "";
-		return ` · ${expandKeyHint()} ${this.#expanded ? "collapse" : "expand"}`;
+		return ` · ${expandKeyHint()} ${this.#expanded ? t("dialog.collapse") : t("dialog.expand")}`;
 	}
 
 	#footerHintText(indicator: string): string {
-		const cancel = `${cancelKeyLabel()} cancel`;
+		const cancel = `${cancelKeyLabel()} ${t("selector.hint.cancel")}`;
 		const inputGuard = this.options.inputGuard;
-		if (inputGuard?.isBlocked()) return `${inputGuard.hint}${this.#expandHint()} · ${cancel}`;
+		if (inputGuard?.isBlocked()) {
+			return t("dialog.footer.guard", { hint: inputGuard.hint, expand: this.#expandHint(), cancel });
+		}
 		if (this.#isSubmitTab()) {
-			const scroll = indicator ? ` ${indicator} scroll ·` : "";
-			return `Enter submit · ↑/↓ scroll ·${scroll} ${cancel}`;
+			const scroll = indicator ? t("dialog.footer.scrollIndicator", { indicator }) : "";
+			return t("dialog.footer.submitTab", { scroll, cancel });
 		}
 		const question = this.#questions[this.#currentQuestionIndex()];
 		// Enter advances in multi-question dialogs and submits single-question ones.
-		const enterAction = this.#questions.length > 1 ? "next" : "submit";
-		const action = question?.multi ? `Space toggle · Enter ${enterAction}` : "Enter select · n note";
+		const enter = this.#questions.length > 1 ? t("dialog.actionNext") : t("dialog.actionSubmit");
+		const action = question?.multi ? t("dialog.footer.actionMulti", { enter }) : t("dialog.footer.actionSingle");
 		const tabs = this.#hasSubmitTab() ? " · Tab/←/→" : "";
 		const expand = this.#expandHint();
 		if (this.#questionCanPage && indicator) {
-			return `${action} · ↑/↓${tabs} · ${cancel}${expand} · ${pageKeysLabel()} ${indicator}`;
+			return t("dialog.footer.paged", { action, tabs, cancel, expand, pageKeys: pageKeysLabel(), indicator });
 		}
-		const scroll = indicator ? ` ${indicator} scroll ·` : "";
-		return `${action} · ↑/↓ move${tabs} ·${scroll} ${cancel}${expand}`;
+		const scroll = indicator ? t("dialog.footer.scrollIndicator", { indicator }) : "";
+		return t("dialog.footer.default", { action, tabs, scroll, cancel, expand });
 	}
 
 	#questionRows(question: ExtensionAskDialogQuestion): QuestionRow[] {
@@ -872,7 +874,7 @@ export class AskDialogComponent implements Component {
 		this.#promptActive = true;
 		try {
 			const input = await this.callbacks.onPrompt(
-				boundPromptTitle("Custom answer: ", question.question),
+				boundPromptTitle(t("dialog.customAnswerTitle"), question.question),
 				state.customInput,
 			);
 			if (input === undefined || this.#closed) return;
@@ -908,7 +910,7 @@ export class AskDialogComponent implements Component {
 		this.#promptActive = true;
 		try {
 			const input = await this.callbacks.onPrompt(
-				boundPromptTitle(`Note for ${rowItem.label}: `, question.question),
+				boundPromptTitle(t("dialog.noteForTitle", { label: rowItem.label }), question.question),
 				state.noteRowKey === rowItem.key ? state.note : undefined,
 			);
 			if (input === undefined || this.#closed) return;
@@ -1006,7 +1008,7 @@ export class AskDialogComponent implements Component {
 			allLines.push(
 				theme.fg(
 					"warning",
-					`${unanswered} unanswered question${unanswered === 1 ? "" : "s"}; Enter still submits.`,
+					unanswered === 1 ? t("dialog.unansweredOne") : t("dialog.unansweredOther", { count: unanswered }),
 				),
 			);
 			allLines.push("");
@@ -1022,12 +1024,17 @@ export class AskDialogComponent implements Component {
 			if (submittedNote?.trim()) {
 				const note = normalizedInlineInput(submittedNote);
 				allLines.push(
-					theme.fg("muted", `   Note: ${truncateToWidth(note, Math.max(1, width - 9), Ellipsis.Unicode)}`),
+					theme.fg(
+						"muted",
+						t("dialog.notePrefix", {
+							note: truncateToWidth(note, Math.max(1, width - 9), Ellipsis.Unicode),
+						}),
+					),
 				);
 			}
 		}
 		allLines.push("");
-		allLines.push(theme.fg("accent", `${theme.nav.cursor} ${SUBMIT_OPTION}`));
+		allLines.push(theme.fg("accent", `${theme.nav.cursor} ${t("dialog.submit")}`));
 		this.#submitScrollOffset = clamp(this.#submitScrollOffset, 0, Math.max(0, allLines.length - rows));
 		const scrollView = new ScrollView(allLines, {
 			height: rows,

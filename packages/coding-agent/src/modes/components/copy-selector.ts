@@ -25,6 +25,7 @@ import {
 	visibleWidth,
 } from "@oh-my-pi/pi-tui";
 import type { MessageRenderer } from "../../extensibility/extensions/types";
+import { t } from "../../i18n";
 import {
 	isUserRequestEntry,
 	type TranscriptEntry,
@@ -401,15 +402,24 @@ export class CopySelectorComponent implements Component {
 		const output: string[] = [];
 		output.push(...this.#border.render(width));
 		output.push(
-			` ${theme.cmd.copy} ${theme.bold("Copy")}${theme.sep.dot}${theme.fg("dim", "pick what to put on the clipboard")}`,
+			` ${theme.cmd.copy} ${theme.bold(t("selector.copy.title"))}${theme.sep.dot}${theme.fg("dim", t("selector.copy.subtitle"))}`,
 		);
 		output.push(...this.#border.render(width));
 		output.push(...this.#scrollView.render(width));
 		const selectedBlock = this.#blocks?.[this.#blockSelected];
-		const openHint = selectedBlock?.href && this.deps.onOpen ? "  o open" : "";
+		const openHint = selectedBlock?.href && this.deps.onOpen ? t("selector.copy.openHint") : "";
 		const hint = this.#blocks
-			? `${this.#blockSelected + 1}/${this.#blocks.length}  ↑/↓ block  ←/esc back  enter copy${openHint}  click ${theme.cmd.copy}/${theme.cmd.share}`
-			: `${this.#targets.length > 0 ? `${this.#selected + 1}/${this.#targets.length}  ` : ""}↑/↓ step  ${blocks.length > 0 ? "→ blocks  " : ""}enter copy  ${this.#truncated ? "a earlier turns  " : ""}ctrl+o expand  esc close`;
+			? t("selector.copy.hintBlocks", {
+					position: this.#blockSelected + 1,
+					total: this.#blocks.length,
+					open: openHint,
+					icons: `${theme.cmd.copy}/${theme.cmd.share}`,
+				})
+			: t("selector.copy.hintTargets", {
+					position: this.#targets.length > 0 ? `${this.#selected + 1}/${this.#targets.length}  ` : "",
+					blocks: blocks.length > 0 ? t("selector.copy.hintBlocksJump") : "",
+					earlier: this.#truncated ? t("selector.copy.hintEarlier") : "",
+				});
 		// The hint grows with the load-all affordance; an over-width row would
 		// wrap and shift the mouse rows CONTENT_TOP/CHROME_ROWS assume.
 		output.push(` ${theme.fg("dim", truncateToWidth(hint, Math.max(0, width - 1)))}`);
@@ -435,17 +445,23 @@ export class CopySelectorComponent implements Component {
 			const styled = block.language ? highlightCode(shown.join("\n"), block.language) : shown;
 			const rows = styled.map(row => truncateToWidth(replaceTabs(row), inner));
 			if (raw.length > shown.length) {
-				rows.push(theme.fg("dim", `… +${raw.length - shown.length} more lines`));
+				rows.push(theme.fg("dim", t("selector.copy.moreLines", { count: raw.length - shown.length })));
 			}
 			const selected = index === this.#blockSelected;
 			const captionColor: ThemeColor = selected ? OUTLINE_COLOR : "dim";
 			const controls: Array<{ action: ControlRegion["action"]; text: string }> = [
-				{ action: "copy", text: `${theme.cmd.copy} copy` },
+				{ action: "copy", text: `${theme.cmd.copy} ${t("selector.copy.controlCopy")}` },
 			];
-			if (block.href && this.deps.onOpen) controls.push({ action: "open", text: `${theme.cmd.share} open` });
+			if (block.href && this.deps.onOpen) {
+				controls.push({ action: "open", text: `${theme.cmd.share} ${t("selector.copy.controlOpen")}` });
+			}
 			const controlsWidth = controls.reduce((sum, control) => sum + visibleWidth(control.text) + 2, 0);
+			const lineCount =
+				raw.length === 1
+					? t("selector.copy.lineCountOne")
+					: t("selector.copy.lineCountOther", { count: raw.length });
 			const summary = truncateToWidth(
-				`${index + 1}/${blocks.length}${theme.sep.dot}${block.label}${theme.sep.dot}${raw.length} line${raw.length === 1 ? "" : "s"}`,
+				`${index + 1}/${blocks.length}${theme.sep.dot}${block.label}${theme.sep.dot}${lineCount}`,
 				Math.max(4, inner - controlsWidth),
 			);
 			// Caption: two-space gutter, summary, then the controls, each preceded by two spaces.
@@ -532,19 +548,22 @@ function pushMarkdownBlocks(blocks: CopyBlock[], text: string): void {
 	for (const block of extractBlocks(text)) {
 		if (block.kind === "code") {
 			blocks.push({
-				label: block.lang ? `${block.lang} code` : "code",
+				label: block.lang ? t("selector.copy.block.langCode", { lang: block.lang }) : t("selector.copy.block.code"),
 				content: block.code,
 				language: block.lang || undefined,
 			});
 		} else {
-			blocks.push({ label: "quote", content: block.text });
+			blocks.push({ label: t("selector.copy.block.quote"), content: block.text });
 		}
 	}
 	// Links follow the message's blocks. The preview shows the whole URL on one
 	// row, so a link the transcript wrapped is copied or opened intact.
 	for (const link of extractLinks(text)) {
 		blocks.push({
-			label: link.text !== link.href ? `link${theme.sep.dot}${link.text}` : "link",
+			label:
+				link.text !== link.href
+					? `${t("selector.copy.block.link")}${theme.sep.dot}${link.text}`
+					: t("selector.copy.block.link"),
 			content: link.href,
 			href: link.href,
 		});
@@ -568,7 +587,10 @@ function collectBlocks(entries: readonly TranscriptEntry[]): CopyBlock[] {
 					const command = commandFromToolCall(content);
 					if (command) {
 						blocks.push({
-							label: command.kind === "bash" ? "bash command" : "eval code",
+							label:
+								command.kind === "bash"
+									? t("selector.copy.block.bashCommand")
+									: t("selector.copy.block.evalCode"),
 							content: command.code,
 							language: command.language,
 						});
@@ -578,16 +600,17 @@ function collectBlocks(entries: readonly TranscriptEntry[]): CopyBlock[] {
 			}
 			case "toolResult": {
 				const text = toolResultText(message);
-				if (text) blocks.push({ label: `${message.toolName} result`, content: text });
+				if (text)
+					blocks.push({ label: t("selector.copy.block.toolResult", { tool: message.toolName }), content: text });
 				break;
 			}
 			case "bashExecution":
-				blocks.push({ label: "command", content: message.command, language: "bash" });
-				if (message.output.trim()) blocks.push({ label: "output", content: message.output });
+				blocks.push({ label: t("selector.copy.block.command"), content: message.command, language: "bash" });
+				if (message.output.trim()) blocks.push({ label: t("selector.copy.block.output"), content: message.output });
 				break;
 			case "pythonExecution":
-				blocks.push({ label: "eval code", content: message.code, language: "python" });
-				if (message.output.trim()) blocks.push({ label: "output", content: message.output });
+				blocks.push({ label: t("selector.copy.block.evalCode"), content: message.code, language: "python" });
+				if (message.output.trim()) blocks.push({ label: t("selector.copy.block.output"), content: message.output });
 				break;
 			default:
 				break;
@@ -602,10 +625,10 @@ function targetCopy(target: OutlineTarget, blocks: readonly CopyBlock[]): { cont
 	const message = transcriptEntryMessage(entry);
 	switch (message?.role) {
 		case "user":
-			return { content: rawUserText(message), label: "user message" };
+			return { content: rawUserText(message), label: t("selector.copy.block.userMessage") };
 		case "assistant": {
 			const text = assistantVisibleText(message);
-			if (text) return { content: text, label: "assistant message" };
+			if (text) return { content: text, label: t("selector.copy.block.assistantMessage") };
 			break;
 		}
 		case "toolResult": {
@@ -616,21 +639,21 @@ function targetCopy(target: OutlineTarget, blocks: readonly CopyBlock[]): { cont
 		case "bashExecution":
 			return {
 				content: [message.command, message.output].filter(part => part.trim()).join("\n"),
-				label: "bash execution",
+				label: t("selector.copy.block.bashExecution"),
 			};
 		case "pythonExecution":
 			return {
 				content: [message.code, message.output].filter(part => part.trim()).join("\n"),
-				label: "eval execution",
+				label: t("selector.copy.block.evalExecution"),
 			};
 		case "compactionSummary":
 		case "branchSummary":
-			return { content: message.summary, label: "summary" };
+			return { content: message.summary, label: t("selector.copy.block.summary") };
 		case "custom":
 		case "hookMessage": {
 			// A user-invoked skill/collab prompt copies as what the user typed, not the expanded body.
 			const draft = message.role === "custom" ? userTurnDraft(entry) : undefined;
-			if (draft?.trim()) return { content: draft, label: "user message" };
+			if (draft?.trim()) return { content: draft, label: t("selector.copy.block.userMessage") };
 			const content =
 				typeof message.content === "string"
 					? message.content
@@ -638,12 +661,12 @@ function targetCopy(target: OutlineTarget, blocks: readonly CopyBlock[]): { cont
 							.filter((block): block is { type: "text"; text: string } => block.type === "text")
 							.map(block => block.text)
 							.join("\n");
-			if (content.trim()) return { content, label: "message" };
+			if (content.trim()) return { content, label: t("selector.copy.block.message") };
 			break;
 		}
 		default:
 			break;
 	}
 	// No direct prose (e.g. a pure tool turn): fall back to its blocks joined.
-	return { content: blocks.map(block => block.content).join("\n\n"), label: "turn content" };
+	return { content: blocks.map(block => block.content).join("\n\n"), label: t("selector.copy.block.turnContent") };
 }
