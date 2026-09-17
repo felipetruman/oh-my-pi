@@ -38,6 +38,7 @@ import {
 } from "../../config/model-resolver";
 import { getKnownRoleIds, getRoleInfo } from "../../config/model-roles";
 import type { Settings } from "../../config/settings";
+import { t } from "../../i18n";
 import { AUTO_THINKING, type ConfiguredThinkingLevel, getConfiguredThinkingLevelMetadata } from "../../thinking";
 import { thinkingLevelGlyph } from "../../tools/render-utils";
 import { theme } from "../theme/theme";
@@ -462,10 +463,15 @@ export class ModelHubComponent implements Component {
 			{
 				id: "roles",
 				kind: "roles",
-				label: "Roles",
+				label: t("model.hub.sidebar.roles"),
 				annotation: `${assignedCount}/${visibleRoles.length}`,
 			},
-			{ id: "all", kind: "all", label: "All models", annotation: String(availableModels.length) },
+			{
+				id: "all",
+				kind: "all",
+				label: t("model.hub.sidebar.allModels"),
+				annotation: String(availableModels.length),
+			},
 		];
 
 		this.#fixedEntries = fixed;
@@ -822,17 +828,17 @@ export class ModelHubComponent implements Component {
 	#formatDiscoveryAge(fetchedAt: number | undefined): string | undefined {
 		if (!fetchedAt) return undefined;
 		const ageMs = Math.max(0, Date.now() - fetchedAt);
-		if (ageMs < 60_000) return "less than a minute ago";
-		return `${Math.round(ageMs / 60_000)}m ago`;
+		if (ageMs < 60_000) return t("model.hub.discoveryAgeUnderMinute");
+		return t("model.hub.discoveryAgeMinutes", { count: Math.round(ageMs / 60_000) });
 	}
 
 	#emptyStateMessage(): string | undefined {
 		if (this.#configError) return `  ${this.#configError}`;
 		const entry = this.#activeEntry();
-		if (entry.kind === "recent") return "  No recently used models yet";
+		if (entry.kind === "recent") return t("model.hub.emptyRecent");
 		if (entry.kind !== "provider" || entry.locked) return undefined;
 		if (this.#browser.query.trim()) {
-			return `  No matching models in ${entry.label}. Switch to All models to search every provider.`;
+			return t("model.hub.emptyProviderSearch", { provider: entry.label });
 		}
 		const providerId = entry.providerId ?? "";
 		const state = this.#registry.getProviderDiscoveryState(providerId);
@@ -840,23 +846,21 @@ export class ModelHubComponent implements Component {
 		const age = this.#formatDiscoveryAge(state.fetchedAt);
 		switch (state.status) {
 			case "cached":
-				return age
-					? `  Using cached model list from ${age}. Live refresh is still pending.`
-					: "  Using cached model list. Live refresh is still pending.";
+				return age ? t("model.hub.discoveryCachedAge", { age }) : t("model.hub.discoveryCached");
 			case "unavailable": {
 				const httpMatch = state.error?.match(/^HTTP (\d+) from (.+)$/);
 				if (httpMatch?.[1] === "404") {
-					return `  Discovery endpoint ${httpMatch[2]} returned 404. Point baseUrl at the host that serves /models (usually .../v1).`;
+					return t("model.hub.discovery404", { url: httpMatch[2] ?? "" });
 				}
-				if (state.error) return `  Discovery failed: ${state.error}`;
-				return age ? `  Provider unavailable. Using cached model list from ${age}.` : "  Provider unavailable.";
+				if (state.error) return t("model.hub.discoveryFailed", { error: state.error });
+				return age ? t("model.hub.providerUnavailableAge", { age }) : t("model.hub.providerUnavailable");
 			}
 			case "unauthenticated":
-				return "  Provider requires authentication before models can be discovered.";
+				return t("model.hub.providerUnauthenticated");
 			case "idle":
-				return "  Provider has not been refreshed yet.";
+				return t("model.hub.providerIdle");
 			case "empty":
-				return "  Discovery succeeded but returned 0 models. Check that /models returns { data: [{ id }] }.";
+				return t("model.hub.discoveryEmpty");
 			case "ok":
 				return undefined;
 		}
@@ -1303,13 +1307,13 @@ export class ModelHubComponent implements Component {
 	#openFallbackKeyStrip(item: ModelBrowserItem): void {
 		const chips: StripChip[] = [
 			{
-				label: `for ${item.selector}`,
-				styled: theme.fg("muted", `for ${item.selector}`),
+				label: t("model.hub.chip.for", { target: item.selector }),
+				styled: theme.fg("muted", t("model.hub.chip.for", { target: item.selector })),
 				action: "fallbackModel",
 			},
 			{
-				label: `for ${item.model.provider}/*`,
-				styled: theme.fg("muted", `for ${item.model.provider}/*`),
+				label: t("model.hub.chip.for", { target: `${item.model.provider}/*` }),
+				styled: theme.fg("muted", t("model.hub.chip.for", { target: `${item.model.provider}/*` })),
 				action: "fallbackProvider",
 			},
 		];
@@ -1971,50 +1975,54 @@ export class ModelHubComponent implements Component {
 
 	#statusRow(width: number): string {
 		if (this.#assignmentPending) {
-			return truncateToWidth(theme.fg("accent", " Applying model…"), width);
+			return truncateToWidth(theme.fg("accent", ` ${t("model.hub.applyingModel")}`), width);
 		}
 		if (this.#assigning !== null) {
 			if (this.#assigning.kind === "fallbackKey") {
-				return truncateToWidth(
-					theme.fg("accent", " New fallback chain — Enter picks the model it protects, Esc cancels"),
-					width,
-				);
+				return truncateToWidth(theme.fg("accent", ` ${t("model.hub.assignFallbackChainNew")}`), width);
 			}
 			const info = getRoleInfo(this.#assigning.role, this.#settings);
 			const label = info.tag ?? info.name ?? this.#assigning.role;
 			if (this.#assigning.kind === "fallback") {
-				const verb = this.#assigning.index === null ? "Adding fallback for" : "Replacing fallback of";
+				const verb =
+					this.#assigning.index === null
+						? t("model.hub.assignFallbackAdding")
+						: t("model.hub.assignFallbackReplacing");
 				return truncateToWidth(
-					theme.fg("accent", ` ${verb} ${theme.bold(label)} — Enter picks the fallback model, Esc cancels`),
+					theme.fg("accent", ` ${t("model.hub.assigningFallback", { verb, label: theme.bold(label) })}`),
 					width,
 				);
 			}
 			return truncateToWidth(
-				theme.fg("accent", ` Assigning ${theme.bold(label)} — Enter assigns, Esc cancels`),
+				theme.fg("accent", ` ${t("model.hub.assigningRole", { label: theme.bold(label) })}`),
 				width,
 			);
 		}
 		const entry = this.#activeEntry();
-		const scopedSuffix = this.#scopedModels.length > 0 ? " · --models scope" : "";
+		const scopedSuffix = this.#scopedModels.length > 0 ? t("model.hub.scopedSuffix") : "";
 		let text: string;
 		switch (entry.kind) {
 			case "recent":
-				text = `Recently used models${scopedSuffix}`;
+				text = `${t("model.hub.statusRecent")}${scopedSuffix}`;
 				break;
 			case "roles":
-				text = "Model roles — f adds a retry fallback, cleared roles fall back to auto-selection";
+				text = t("model.hub.statusRoles");
 				break;
 			case "provider":
 				if (entry.locked) {
-					text = `${entry.label} · not configured`;
+					text = t("model.hub.statusProviderNotConfigured", { provider: entry.label });
 				} else if (entry.providerId && this.#refreshingProviders.has(entry.providerId)) {
-					text = `${entry.label} · refreshing model list…`;
+					text = t("model.hub.statusProviderRefreshing", { provider: entry.label });
 				} else {
-					text = `${entry.label} · ${entry.annotation ?? "0"} models${scopedSuffix}`;
+					text = t("model.hub.statusProviderModels", {
+						provider: entry.label,
+						count: entry.annotation ?? "0",
+						scope: scopedSuffix,
+					});
 				}
 				break;
 			default:
-				text = `All available models${scopedSuffix}`;
+				text = `${t("model.hub.statusAllModels")}${scopedSuffix}`;
 				break;
 		}
 		if (this.#configError && entry.kind !== "provider") {
@@ -2075,7 +2083,7 @@ export class ModelHubComponent implements Component {
 			}
 
 			if (rowDef.kind === "newRole" || rowDef.kind === "newFallback") {
-				const label = rowDef.kind === "newRole" ? "+ New role…" : "+ New fallback…";
+				const label = rowDef.kind === "newRole" ? t("model.hub.newRole") : t("model.hub.newFallback");
 				let line = ` ${cursor} ${theme.fg(selected ? "accent" : "dim", label)}`;
 				line = this.#finishRolesRow(line, width, hovered);
 				lines.push(line);
@@ -2123,7 +2131,10 @@ export class ModelHubComponent implements Component {
 			} else if (assignment) {
 				dot = theme.fg("dim", theme.status.shadowed);
 				tagStyled = theme.fg("dim", tag);
-				value = theme.fg("dim", `auto → ${assignment.model.provider}/${assignment.model.id}`);
+				value = theme.fg(
+					"dim",
+					t("model.hub.roleAuto", { selector: `${assignment.model.provider}/${assignment.model.id}` }),
+				);
 			} else {
 				dot = theme.fg("dim", theme.status.shadowed);
 				tagStyled = theme.fg("dim", tag);
@@ -2149,8 +2160,8 @@ export class ModelHubComponent implements Component {
 			const hiddenAbove = this.#roleScrollStart;
 			const hiddenBelow = total - endIndex;
 			const parts: string[] = [];
-			if (hiddenAbove > 0) parts.push(`↑ ${hiddenAbove} more`);
-			if (hiddenBelow > 0) parts.push(`↓ ${hiddenBelow} more`);
+			if (hiddenAbove > 0) parts.push(t("model.hub.moreAbove", { count: hiddenAbove }));
+			if (hiddenBelow > 0) parts.push(t("model.hub.moreBelow", { count: hiddenBelow }));
 			lines.push(truncateToWidth(theme.fg("dim", `   ${parts.join("   ")}`), width));
 		}
 
@@ -2168,12 +2179,12 @@ export class ModelHubComponent implements Component {
 					cycleOrder.map(role => ({ label: role })),
 					activeIndex,
 				);
-				lines[rows - 1] = truncateToWidth(`  ${theme.fg("dim", `${cycleKey} cycle:`)} ${track}`, width);
-			} else {
 				lines[rows - 1] = truncateToWidth(
-					theme.fg("dim", `  ${cycleKey} cycle is empty — press c on a role to add it`),
+					`  ${theme.fg("dim", t("model.hub.cycleLabel", { key: cycleKey }))} ${track}`,
 					width,
 				);
+			} else {
+				lines[rows - 1] = truncateToWidth(theme.fg("dim", t("model.hub.cycleEmpty", { key: cycleKey })), width);
 			}
 		}
 		return lines;
@@ -2183,27 +2194,31 @@ export class ModelHubComponent implements Component {
 		const lines: string[] = [];
 		this.#lockedLoginLine = null;
 		lines.push("");
-		lines.push(truncateToWidth(theme.fg("warning", `  ${entry.label} has no credentials configured`), width));
+		lines.push(
+			truncateToWidth(theme.fg("warning", t("model.hub.lockedNoCredentials", { provider: entry.label })), width),
+		);
 		lines.push("");
 		const envVars = entry.providerId ? (providerEntry(entry.providerId)?.envVars ?? []) : [];
 		if (envVars.length > 0) {
 			lines.push(
 				truncateToWidth(
-					theme.fg("muted", `  Set ${envVars.join(" or ")} in your environment, or add a key in config.`),
+					theme.fg("muted", t("model.hub.lockedSetEnv", { vars: envVars.join(t("model.hub.envVarsOr")) })),
 					width,
 				),
 			);
 		} else {
-			lines.push(truncateToWidth(theme.fg("muted", "  Add an API key for this provider in config."), width));
+			lines.push(truncateToWidth(theme.fg("muted", t("model.hub.lockedAddKey")), width));
 		}
 		if (entry.oauth) {
 			this.#lockedLoginLine = lines.length + 1; // +1 for the status row offset handled by caller
-			lines.push(truncateToWidth(theme.fg("accent", `  ${theme.nav.cursor} Log in with OAuth (Enter)`), width));
+			lines.push(truncateToWidth(theme.fg("accent", `  ${theme.nav.cursor} ${t("model.hub.lockedLogin")}`), width));
 		}
 		lines.push("");
 		const catalogCount = entry.catalogCount ?? 0;
 		if (catalogCount > 0) {
-			lines.push(truncateToWidth(theme.fg("dim", `  ${catalogCount} models in catalog:`), width));
+			lines.push(
+				truncateToWidth(theme.fg("dim", t("model.hub.lockedCatalogCount", { count: catalogCount })), width),
+			);
 			const preview = this.#scopedModels.length > 0 ? [] : this.#registry.getAll();
 			for (const model of preview) {
 				if (model.provider !== entry.providerId) continue;
@@ -2219,26 +2234,26 @@ export class ModelHubComponent implements Component {
 		const strip = this.#strip;
 		if (strip) {
 			if (strip.kind === "roleName") {
-				return "Enter create + pick model · Esc cancel";
+				return t("model.hub.footer.roleName");
 			}
-			if (strip.kind === "role") return "←/→ choose · Enter assign/clear · Esc cancel";
-			if (strip.kind === "scope") return "←/→ save scope · Enter choose · Esc cancel";
-			return "←/→ thinking level · Enter apply · Esc keep";
+			if (strip.kind === "role") return t("model.hub.footer.stripRole");
+			if (strip.kind === "scope") return t("model.hub.footer.stripScope");
+			return t("model.hub.footer.stripThinking");
 		}
 		if (this.#assigning !== null) {
 			switch (this.#assigning.kind) {
 				case "fallback":
-					return "Enter pick fallback · ↑/↓ providers · type to search · Esc cancel";
+					return t("model.hub.footer.assignFallback");
 				case "fallbackKey":
-					return "Enter pick the protected model · ↑/↓ providers · type to search · Esc cancel";
+					return t("model.hub.footer.assignFallbackKey");
 				default:
-					return "Enter assign · ↑/↓ providers · type to search · Esc cancel";
+					return t("model.hub.footer.assign");
 			}
 		}
 		const entry = this.#activeEntry();
 		if (entry.kind === "roles") {
 			if (this.#focus !== "list") {
-				return "↑/↓ providers · → roles · Esc close";
+				return t("model.hub.footer.rolesScope");
 			}
 			const row = this.#rolesRows[this.#roleIndex];
 			if (row?.kind === "fallback") {
@@ -2246,23 +2261,23 @@ export class ModelHubComponent implements Component {
 				// inherit and unknown models have no ladder to offer, so the
 				// action would be inert there.
 				const editable = this.#resolveFallbackEntry(row.role, row.chainIndex) !== undefined;
-				const thinking = editable ? " · t thinking" : "";
-				return `↑/↓ rows · Enter replace · f add another · x remove${thinking} · [/] reorder · ← providers`;
+				const thinking = editable ? t("model.hub.footer.thinkingAction") : "";
+				return t("model.hub.footer.rolesFallback", { thinking });
 			}
 			if (row?.kind === "chainKey") {
-				return "↑/↓ rows · Enter/f add fallback · x clear chain · ← providers";
+				return t("model.hub.footer.rolesChainKey");
 			}
 			if (row?.kind === "newFallback") {
-				return "↑/↓ rows · Enter new model/provider fallback chain · ← providers";
+				return t("model.hub.footer.rolesNewFallback");
 			}
-			return "↑/↓ rows · Enter pick · f fallback · x clear · t thinking · c cycle · [/] reorder · n new";
+			return t("model.hub.footer.roles");
 		}
 		if (entry.kind === "provider" && entry.locked) {
-			return entry.oauth ? "Enter log in · ↑/↓ providers · Esc close" : "↑/↓ providers · Esc close";
+			return entry.oauth ? t("model.hub.footer.lockedOauth") : t("model.hub.footer.locked");
 		}
-		const arrows = this.#focus === "scope" ? "↑/↓ providers · → models" : "↑/↓ models · ← providers";
-		const refresh = entry.kind === "provider" ? " · F5 refresh" : "";
-		return `Enter assign roles · ${arrows} · type to search${refresh} · Esc close`;
+		const arrows = this.#focus === "scope" ? t("model.hub.footer.arrowsScope") : t("model.hub.footer.arrowsList");
+		const refresh = entry.kind === "provider" ? t("model.hub.footer.refresh") : "";
+		return t("model.hub.footer.browse", { arrows, refresh });
 	}
 
 	/** Footer row: active strip (chips) or the contextual hint line. */
@@ -2274,10 +2289,11 @@ export class ModelHubComponent implements Component {
 		}
 
 		if (strip.kind === "roleName") {
-			const label = theme.fg("accent", "New role name:");
-			const inputWidth = Math.max(8, Math.min(32, width - visibleWidth("New role name:") - 24));
+			const nameLabel = t("model.hub.newRoleNameLabel");
+			const label = theme.fg("accent", nameLabel);
+			const inputWidth = Math.max(8, Math.min(32, width - visibleWidth(nameLabel) - 24));
 			const inputLine = strip.input.render(inputWidth)[0] ?? "";
-			return truncateToWidth(`${label} ${inputLine} ${theme.fg("dim", "(letters, digits, - and _)")}`, width);
+			return truncateToWidth(`${label} ${inputLine} ${theme.fg("dim", t("model.hub.newRoleNameHint"))}`, width);
 		}
 
 		const prefix =
@@ -2357,7 +2373,7 @@ export class ModelHubComponent implements Component {
 		const sidebarLines = this.#renderSidebar(sidebarWidth, contentRows);
 
 		const out: string[] = [];
-		out.push(topBorderSplit(width, "Models", sidebarWidth));
+		out.push(topBorderSplit(width, t("model.hub.title"), sidebarWidth));
 		this.#contentRowStart = out.length;
 		for (let i = 0; i < contentRows; i++) {
 			out.push(splitRow(sidebarLines[i] ?? "", bodyLines[i] ?? "", width, sidebarWidth));

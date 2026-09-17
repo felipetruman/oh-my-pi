@@ -1,4 +1,5 @@
 import { Container, matchesKey, ScrollView, Spacer, TruncatedText } from "@oh-my-pi/pi-tui";
+import { t } from "../../i18n";
 import { theme } from "../../modes/theme/theme";
 import { matchesSelectCancel, matchesSelectDown, matchesSelectUp } from "../../modes/utils/keybinding-matchers";
 import type { LogoutAccount } from "../../slash-commands/helpers/logout";
@@ -21,7 +22,7 @@ export class LogoutAccountSelectorComponent extends OverlayPanel {
 		onSelect: (account: LogoutAccount) => void,
 		onCancel: () => void,
 	) {
-		super(`Select ${providerName} account to log out`);
+		super(t("auth.logout.accountTitle", { provider: providerName }));
 		this.#accounts = accounts;
 		this.#onSelectCallback = onSelect;
 		this.#onCancelCallback = onCancel;
@@ -48,7 +49,7 @@ export class LogoutAccountSelectorComponent extends OverlayPanel {
 		for (let i = startIndex; i < endIndex; i++) {
 			const account = this.#accounts[i];
 			if (!account) continue;
-			const activeTag = account.active ? theme.fg("muted", " (active)") : "";
+			const activeTag = account.active ? theme.fg("muted", t("auth.account.activeTag")) : "";
 			const detail = account.detail ? theme.fg("dim", `  ${account.detail}`) : "";
 			if (i === this.#selectedIndex) {
 				rows.push(`${theme.fg("accent", `${theme.nav.cursor} ${account.label}`)}${activeTag}${detail}`);
@@ -69,12 +70,10 @@ export class LogoutAccountSelectorComponent extends OverlayPanel {
 		}
 
 		if (total === 0) {
-			this.#listContainer.addChild(new TruncatedText(theme.fg("muted", "No stored accounts to log out"), 0, 0));
+			this.#listContainer.addChild(new TruncatedText(theme.fg("muted", t("auth.logout.empty")), 0, 0));
 		}
 
-		this.#listContainer.addChild(
-			new TruncatedText(theme.fg("muted", "↑/↓ select · ↵ log out account · Esc cancel"), 0, 0),
-		);
+		this.#listContainer.addChild(new TruncatedText(theme.fg("muted", t("auth.logout.footerHint")), 0, 0));
 
 		if (this.#statusMessage) {
 			this.#listContainer.addChild(new Spacer(1));

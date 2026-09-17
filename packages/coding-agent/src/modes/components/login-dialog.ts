@@ -1,6 +1,7 @@
 import { getOAuthProviders } from "@oh-my-pi/pi-ai/oauth";
 import type { OAuthPrompt } from "@oh-my-pi/pi-ai/oauth/types";
 import { Container, getKeybindings, Input, Spacer, Text, type TUI, wrapTextWithAnsi } from "@oh-my-pi/pi-tui";
+import { t } from "../../i18n";
 import { theme } from "../../modes/theme/theme";
 import { urlHyperlinkAlways, WidthAwareText } from "../../tui";
 import { openPath } from "../../utils/open";
@@ -25,7 +26,7 @@ export class LoginDialogComponent extends OverlayPanel {
 	) {
 		const providerInfo = getOAuthProviders().find(p => p.id === providerId);
 		const providerName = providerInfo?.name || providerId;
-		super(`Login to ${providerName}`);
+		super(t("auth.login.title", { provider: providerName }));
 		this.#tui = tui;
 
 		// Dynamic content area
@@ -58,7 +59,7 @@ export class LoginDialogComponent extends OverlayPanel {
 		const reject = this.#inputRejecter;
 		this.#clearInputHandlers();
 		reject?.(new Error("Login cancelled"));
-		this.onComplete(false, "Login cancelled");
+		this.onComplete(false, t("auth.login.cancelled"));
 	}
 
 	/**
@@ -86,13 +87,13 @@ export class LoginDialogComponent extends OverlayPanel {
 			),
 		);
 
-		const clickHint = process.platform === "darwin" ? "Cmd+click to open" : "Ctrl+click to open";
+		const clickHint = process.platform === "darwin" ? t("auth.login.clickHintMac") : t("auth.login.clickHint");
 		const hyperlink = `\x1b]8;;${url}\x07${clickHint}\x1b]8;;\x07`;
 		this.#contentContainer.addChild(new Text(theme.fg("dim", hyperlink), 0, 0));
 
 		if (launchUrl && launchUrl !== url) {
 			this.#contentContainer.addChild(
-				new Text(theme.fg("dim", `Local shortcut (this machine only): ${launchUrl}`), 0, 0),
+				new Text(theme.fg("dim", t("auth.login.localShortcut", { url: launchUrl })), 0, 0),
 			);
 		}
 
@@ -120,7 +121,7 @@ export class LoginDialogComponent extends OverlayPanel {
 			this.#contentContainer.addChild(new Spacer(1));
 			this.#contentContainer.addChild(new Text(theme.fg("dim", prompt), 0, 0));
 			this.#contentContainer.addChild(this.#input);
-			this.#contentContainer.addChild(new Text(theme.fg("dim", "(Escape to cancel)"), 0, 0));
+			this.#contentContainer.addChild(new Text(theme.fg("dim", t("auth.login.escapeToCancel")), 0, 0));
 		}
 		this.#tui.requestRender();
 
@@ -161,10 +162,12 @@ export class LoginDialogComponent extends OverlayPanel {
 		this.#contentContainer.addChild(new Spacer(1));
 		this.#contentContainer.addChild(new Text(theme.fg("text", prompt.message), 0, 0));
 		if (prompt.placeholder) {
-			this.#contentContainer.addChild(new Text(theme.fg("dim", `e.g., ${prompt.placeholder}`), 0, 0));
+			this.#contentContainer.addChild(
+				new Text(theme.fg("dim", t("auth.login.placeholderExample", { value: prompt.placeholder })), 0, 0),
+			);
 		}
 		this.#contentContainer.addChild(this.#input);
-		this.#contentContainer.addChild(new Text(theme.fg("dim", "(Escape to cancel, Enter to submit)"), 0, 0));
+		this.#contentContainer.addChild(new Text(theme.fg("dim", t("auth.login.escapeOrEnter")), 0, 0));
 
 		this.#tui.requestRender();
 
@@ -189,7 +192,7 @@ export class LoginDialogComponent extends OverlayPanel {
 	showWaiting(message: string): void {
 		this.#contentContainer.addChild(new Spacer(1));
 		this.#contentContainer.addChild(new Text(theme.fg("dim", message), 0, 0));
-		this.#contentContainer.addChild(new Text(theme.fg("dim", "(Escape to cancel)"), 0, 0));
+		this.#contentContainer.addChild(new Text(theme.fg("dim", t("auth.login.escapeToCancel")), 0, 0));
 		this.#tui.requestRender();
 	}
 

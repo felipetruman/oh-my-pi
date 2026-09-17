@@ -27,6 +27,7 @@ import { getModelMatchPreferences, resolveModelRoleValue } from "../../config/mo
 import type { ModelRegistry } from "../../config/model-registry";
 import { getKnownRoleIds, getRoleInfo, MODEL_ROLE_IDS } from "../../config/model-roles";
 import type { Settings } from "../../config/settings";
+import { t } from "../../i18n";
 import type { ModelPerfStats } from "../../session/agent-storage";
 import { type ConfiguredThinkingLevel, parseConfiguredThinkingLevel } from "../../thinking";
 import { thinkingLevelGlyph as sharedThinkingLevelGlyph } from "../../tools/render-utils";
@@ -969,7 +970,9 @@ export class ModelBrowser implements Component {
 		const currentMark =
 			item.selector === this.#currentSelector ? ` ${theme.fg("success", theme.status.enabled)}` : "";
 		const overLimit = overContext
-			? ` ${theme.status.disabled} context>${formatNumber(item.model.contextWindow ?? 0).toLowerCase()}`
+			? ` ${theme.status.disabled} ${t("model.browser.overContextRow", {
+					limit: formatNumber(item.model.contextWindow ?? 0).toLowerCase(),
+				})}`
 			: "";
 		let left = `${prefix}${providerPrefix}${name}${currentMark}${overLimit}`;
 
@@ -1014,14 +1017,14 @@ export class ModelBrowser implements Component {
 		const facts: string[] = [model.name];
 		// Upstream badges sit next to the name; the provider blurb goes last so
 		// width truncation eats prose before context, cost, or perf facts.
-		if (model.isNew) facts.push("new");
-		if (model.isBeta) facts.push("beta");
-		if (model.isRecommended) facts.push("recommended");
+		if (model.isNew) facts.push(t("model.browser.badgeNew"));
+		if (model.isBeta) facts.push(t("model.browser.badgeBeta"));
+		if (model.isRecommended) facts.push(t("model.browser.badgeRecommended"));
 		if (model.contextWindow) facts.push(`${formatNumber(model.contextWindow).toLowerCase()} ctx`);
 		if (model.maxTokens) facts.push(`${formatNumber(model.maxTokens).toLowerCase()} out`);
 		facts.push(`${formatCostPair(model)} per M`);
-		if (model.reasoning) facts.push("reasoning");
-		if (model.input.includes("image")) facts.push("vision");
+		if (model.reasoning) facts.push(t("model.browser.badgeReasoning"));
+		if (model.input.includes("image")) facts.push(t("model.browser.badgeVision"));
 		const intelligence = formatIntelligence(model);
 		if (intelligence) facts.push(intelligence);
 		const perf = this.#perf.get(selected.selector);
@@ -1038,13 +1041,16 @@ export class ModelBrowser implements Component {
 		const line1 = truncateToWidth(theme.fg("muted", `  ${facts.join(" · ")}`), width);
 
 		if (this.isOverContext(selected)) {
-			const warning = `  ${theme.status.disabled} context ${formatNumber(this.#currentContextTokens).toLowerCase()} exceeds ${formatNumber(model.contextWindow ?? 0).toLowerCase()} limit · compacts with current model, then switches`;
+			const warning = `  ${theme.status.disabled} ${t("model.browser.overContextWarning", {
+				tokens: formatNumber(this.#currentContextTokens).toLowerCase(),
+				limit: formatNumber(model.contextWindow ?? 0).toLowerCase(),
+			})}`;
 			return [line1, truncateToWidth(theme.fg("warning", warning), width)];
 		}
 
 		const chips: string[] = [];
 		if (selected.selector === this.#currentSelector) {
-			chips.push(theme.fg("success", `${theme.status.enabled} current`));
+			chips.push(theme.fg("success", `${theme.status.enabled} ${t("model.browser.current")}`));
 		}
 		const seen = new Set<string>();
 		const pushRole = (role: string) => {
@@ -1080,7 +1086,8 @@ export class ModelBrowser implements Component {
 
 		if (total === 0) {
 			const message =
-				this.#emptyText?.() ?? (this.query.trim() ? "  No matching models" : "  No models available in this scope");
+				this.#emptyText?.() ??
+				(this.query.trim() ? t("model.browser.emptyNoMatches") : t("model.browser.emptyScope"));
 			lines.push(truncateToWidth(theme.fg("muted", message), width));
 			for (let i = 1; i < this.#maxVisible; i++) lines.push("");
 		} else {

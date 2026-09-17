@@ -11,6 +11,7 @@ import {
 	TruncatedText,
 } from "@oh-my-pi/pi-tui";
 import { settings } from "../../config/settings";
+import { t } from "../../i18n";
 import { theme } from "../../modes/theme/theme";
 import { matchesSelectCancel, matchesSelectDown, matchesSelectUp } from "../../modes/utils/keybinding-matchers";
 import type { AuthStorage, CredentialOriginKind } from "../../session/auth-storage";
@@ -83,7 +84,7 @@ export class OAuthSelectorComponent extends OverlayPanel {
 			requestRender?: () => void;
 		},
 	) {
-		super(mode === "login" ? "Select provider to login" : "Select provider to logout");
+		super(mode === "login" ? t("auth.oauth.loginTitle") : t("auth.oauth.logoutTitle"));
 		this.#mode = mode;
 		this.#authStorage = authStorage;
 		this.#onSelectCallback = onSelect;
@@ -224,16 +225,16 @@ export class OAuthSelectorComponent extends OverlayPanel {
 		if (state === "checking") {
 			const frameCount = theme.spinnerFrames.length;
 			const spinner = frameCount > 0 ? theme.spinnerFrames[this.#spinnerFrame % frameCount] : theme.status.pending;
-			return theme.fg("warning", ` ${spinner} checking`) + source;
+			return theme.fg("warning", ` ${spinner} ${t("auth.oauth.checking")}`) + source;
 		}
 		if (state === "invalid") {
-			return theme.fg("error", ` ${theme.status.error} invalid`) + source;
+			return theme.fg("error", ` ${theme.status.error} ${t("auth.oauth.invalid")}`) + source;
 		}
 		if (state === "valid") {
-			return theme.fg("success", ` ${theme.status.enabled} logged in`) + source;
+			return theme.fg("success", ` ${theme.status.enabled} ${t("auth.oauth.loggedIn")}`) + source;
 		}
 		return this.#hasSelectableAuth(providerId)
-			? theme.fg("success", ` ${theme.status.enabled} logged in`) + source
+			? theme.fg("success", ` ${theme.status.enabled} ${t("auth.oauth.loggedIn")}`) + source
 			: "";
 	}
 
@@ -247,7 +248,7 @@ export class OAuthSelectorComponent extends OverlayPanel {
 
 	#renderStatusLine(_total: number): string {
 		const query = this.#searchQuery.trim();
-		const suffix = query ? `Search: ${this.#searchQuery}` : "Type to search";
+		const suffix = query ? t("auth.oauth.searchPrefix", { query: this.#searchQuery }) : t("auth.oauth.typeToSearch");
 		return theme.fg("muted", suffix);
 	}
 
@@ -255,11 +256,11 @@ export class OAuthSelectorComponent extends OverlayPanel {
 		let text = `${provider.name} ${provider.id}`;
 		const origin = this.#authStorage.getCredentialOrigin(provider.id);
 		if (origin) {
-			text += ` logged in authenticated ${ORIGIN_LABELS[origin.kind]}`;
+			text += ` ${t("auth.oauth.searchKeywords.authenticated")} ${ORIGIN_LABELS[origin.kind]}`;
 			if (origin.envVar) text += ` ${origin.envVar}`;
 		}
 		if (!provider.available) {
-			text += " unavailable";
+			text += ` ${t("auth.oauth.searchKeywords.unavailable")}`;
 		}
 		return text;
 	}
@@ -334,7 +335,7 @@ export class OAuthSelectorComponent extends OverlayPanel {
 				height: rows.length,
 				scrollbar: "auto",
 				totalRows: total,
-				theme: { track: t => theme.fg("muted", t), thumb: t => theme.fg("accent", t) },
+				theme: { track: text => theme.fg("muted", text), thumb: text => theme.fg("accent", text) },
 			});
 			sv.setScrollOffset(startIndex);
 			this.#listContainer.addChild(sv);
@@ -349,9 +350,9 @@ export class OAuthSelectorComponent extends OverlayPanel {
 			const message =
 				this.#allProviders.length === 0
 					? this.#mode === "login"
-						? "No OAuth providers available"
-						: "No stored provider credentials to log out"
-					: "No matching providers";
+						? t("auth.oauth.emptyLogin")
+						: t("auth.oauth.emptyLogout")
+					: t("auth.oauth.noMatches");
 			this.#listContainer.addChild(new TruncatedText(theme.fg("muted", message), 0, 0));
 		}
 		if (this.#statusMessage) {
@@ -419,7 +420,7 @@ export class OAuthSelectorComponent extends OverlayPanel {
 			this.stopValidation();
 			this.#onSelectCallback(selectedProvider.id);
 		} else if (selectedProvider) {
-			this.#statusMessage = "Provider unavailable in this environment.";
+			this.#statusMessage = t("auth.oauth.unavailable");
 			this.#updateList();
 		}
 	}
