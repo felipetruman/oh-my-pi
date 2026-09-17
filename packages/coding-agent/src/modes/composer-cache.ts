@@ -30,6 +30,12 @@ export interface ComposerStartupCache {
 	readonly recentSessions: RecentSession[];
 	readonly lspServers: LspServerInfo[];
 	readonly status?: ComposerStatusSnapshot;
+	/**
+	 * Interface language resolved on the previous run. The welcome box paints
+	 * before settings load, so without this the first frame would always be
+	 * English regardless of `display.locale`.
+	 */
+	readonly locale?: string;
 }
 
 function projectCacheDir(cwd: string): string {
@@ -159,7 +165,9 @@ function readStatus(file: string): ComposerStatusSnapshot | undefined {
 	return { shape, borderColor, topBorder: { content: borderContent, width: borderWidth }, bottomLines };
 }
 
-function readUiState(file: string): { preferences: ComposerPreferences; theme: ComposerThemePreferences } | undefined {
+function readUiState(
+	file: string,
+): { preferences: ComposerPreferences; theme: ComposerThemePreferences; locale?: string } | undefined {
 	const content = readFile(file);
 	if (!content) return undefined;
 	let parsed: unknown;
@@ -172,6 +180,9 @@ function readUiState(file: string): { preferences: ComposerPreferences; theme: C
 	if (field(parsed, "version") !== CACHE_VERSION) return undefined;
 	const rawPreferences = field(parsed, "preferences");
 	const rawTheme = field(parsed, "theme");
+	// Absent in caches written before the interface-language setting existed;
+	// `setLocale` treats an unusable value as the default, so no version bump.
+	const cachedLocale = field(parsed, "locale");
 	if (
 		typeof rawPreferences !== "object" ||
 		rawPreferences === null ||
@@ -241,6 +252,7 @@ function readUiState(file: string): { preferences: ComposerPreferences; theme: C
 			spellingAutocorrect,
 		},
 		theme: { symbolPreset, colorBlindMode, darkTheme, lightTheme },
+		locale: typeof cachedLocale === "string" ? cachedLocale : undefined,
 	};
 }
 
@@ -251,6 +263,7 @@ export function readComposerStartupCache(cwd: string): ComposerStartupCache {
 	return {
 		preferences: ui?.preferences,
 		theme: ui?.theme,
+		locale: ui?.locale,
 		welcome: readWelcome(path.join(dir, "welcome.json")),
 		recentSessions: readRecentSessions(path.join(dir, "recent-sessions.jsonl")),
 		lspServers: readLspServers(path.join(dir, "lsp-servers.json")),
@@ -263,10 +276,11 @@ export async function writeComposerUiCache(
 	cwd: string,
 	preferences: ComposerPreferences,
 	theme: ComposerThemePreferences,
+	locale: string,
 ): Promise<void> {
 	await Bun.write(
 		path.join(projectCacheDir(cwd), "ui.json"),
-		JSON.stringify({ version: CACHE_VERSION, preferences, theme }),
+		JSON.stringify({ version: CACHE_VERSION, preferences, theme, locale }),
 	);
 }
 

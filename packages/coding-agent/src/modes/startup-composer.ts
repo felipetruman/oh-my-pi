@@ -11,6 +11,7 @@ import {
 	writeComposerUiCache,
 } from "./composer-cache";
 import { initThemeSync } from "./theme/theme";
+import { setLocale } from "../i18n/locale";
 
 /** Inputs available at the CLI prepaint boundary before command modules load. */
 export interface PrepaintComposerOptions {
@@ -28,6 +29,8 @@ export interface PrepaintComposerOptions {
 /** Final settings pushed into the live composer after Settings and the theme resolve. */
 export interface PrepaintComposerPreferences extends ComposerPreferences {
 	readonly theme: ComposerThemePreferences;
+	/** Resolved `display.locale`, cached so the next prepaint paints in the right language. */
+	readonly locale: string;
 }
 
 interface PendingComposer {
@@ -81,9 +84,13 @@ export function beginStartupComposer(options: PrepaintComposerOptions = {}): voi
 				recentSessions: [],
 				lspServers: [],
 				status: undefined,
+				locale: undefined,
 			};
 	const theme = { ...cached.theme, ...options.theme };
 	initThemeSync(theme.symbolPreset, theme.colorBlindMode, theme.darkTheme, theme.lightTheme);
+	// Same reason as the theme above: the welcome box renders now, well before
+	// Settings exists, so the language has to come from the previous run.
+	setLocale(cached.locale);
 	const preferences = { ...COMPOSER_DEFAULTS, ...cached.preferences, ...options.preferences };
 	const welcome: ComposerWelcomeUpdate = {
 		version: options.version ?? "",
@@ -150,7 +157,7 @@ export function applyStartupComposerPreferences(update: PrepaintComposerPreferen
 	// buffered) everything typed during the load; the editor replays it here.
 	pending.composer.enableInput();
 	if (pending.cache) {
-		void writeComposerUiCache(pending.cwd, preferences, update.theme).catch(error => {
+		void writeComposerUiCache(pending.cwd, preferences, update.theme, update.locale).catch(error => {
 			logger.debug("composer UI cache write failed", { error });
 		});
 	}

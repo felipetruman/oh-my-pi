@@ -764,6 +764,7 @@ describe("Composer prepaint", () => {
 			spellingAutocomplete: settings.get("spelling.autocomplete"),
 			spellingAutocorrect: settings.get("spelling.autocorrect"),
 			theme: {},
+			locale: "en-US",
 		});
 		await terminal.waitForRender();
 
@@ -844,7 +845,7 @@ describe("Composer prepaint", () => {
 		expect(terminal.startOptions?.deferInput).toBeTrue();
 		expect(terminal.inputEnables).toBe(0);
 
-		applyStartupComposerPreferences({ ...config, theme: {} });
+		applyStartupComposerPreferences({ ...config, theme: {}, locale: "en-US" });
 		expect(terminal.inputEnables).toBe(1);
 
 		// Adoption after preferences must not double-enable…

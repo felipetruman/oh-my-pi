@@ -29,12 +29,17 @@ describe("composer startup cache", () => {
 				bottomLines: ["", "placeholder"],
 			};
 			await Promise.all([
-				writeComposerUiCache(cwd, preferences, {
-					symbolPreset: "ascii",
-					colorBlindMode: true,
-					darkTheme: "dark",
-					lightTheme: "light",
-				}),
+				writeComposerUiCache(
+					cwd,
+					preferences,
+					{
+						symbolPreset: "ascii",
+						colorBlindMode: true,
+						darkTheme: "dark",
+						lightTheme: "light",
+					},
+					"pt-BR",
+				),
 				writeComposerRecentSessionsCache(cwd, recentSessions),
 				writeComposerLspCache(cwd, lspServers),
 				writeComposerStatusCache(cwd, status),
@@ -49,6 +54,7 @@ describe("composer startup cache", () => {
 					darkTheme: "dark",
 					lightTheme: "light",
 				},
+				locale: "pt-BR",
 				welcome: { modelName: "Claude Fable 5", providerName: "anthropic" },
 				recentSessions,
 				lspServers,
@@ -57,6 +63,7 @@ describe("composer startup cache", () => {
 			expect(readComposerStartupCache(otherCwd)).toEqual({
 				preferences: undefined,
 				theme: undefined,
+				locale: undefined,
 				welcome: undefined,
 				recentSessions: [],
 				lspServers: [],

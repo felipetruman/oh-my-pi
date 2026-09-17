@@ -1822,6 +1822,7 @@ export async function runRootCommand(
 				darkTheme: settingsInstance.get("theme.dark"),
 				lightTheme: settingsInstance.get("theme.light"),
 			},
+			locale: settingsInstance.get("display.locale"),
 		});
 		setStartupComposerLspServers(discoverStartupLspServers(cwd, "connecting"));
 
