@@ -24,6 +24,8 @@ export interface SettingItem {
 	warning?: string;
 	/** Current value to display (right side) */
 	currentValue: string;
+	/** Optional formatter to display currentValue on the row. When omitted, currentValue is shown directly. */
+	formatValue?: (value: string) => string;
 	/** If provided, Enter/Space cycles through these values */
 	values?: string[];
 	/** If provided, Enter opens this submenu. Receives current value and done callback. */
@@ -86,7 +88,11 @@ export interface SettingsListOptions {
 
 /** Searchable text for a setting item: label, id, value, description, warning, and cycle values. */
 export function getSettingItemFilterText(item: SettingItem): string {
+	const displayValue = item.formatValue ? item.formatValue(item.currentValue) : item.currentValue;
 	let text = `${item.label} ${item.id} ${item.currentValue}`;
+	if (displayValue !== item.currentValue) {
+		text += ` ${displayValue}`;
+	}
 	if (item.description) {
 		text += ` ${item.description}`;
 	}
@@ -95,6 +101,9 @@ export function getSettingItemFilterText(item: SettingItem): string {
 	}
 	if (item.values) {
 		text += ` ${item.values.join(" ")}`;
+		if (item.formatValue) {
+			text += ` ${item.values.map(item.formatValue).join(" ")}`;
+		}
 	}
 	return sanitizeSingleLine(text);
 }
@@ -533,7 +542,8 @@ export class SettingsList implements Component {
 		const labelPad = padding(Math.max(0, maxLabelWidth - visibleWidth(labelPlain)));
 		const separator = "  ";
 		const valueMaxWidth = rowWidth - prefixWidth - maxLabelWidth - visibleWidth(separator) - 2;
-		const valuePlain = truncateToWidth(String(item.currentValue ?? ""), valueMaxWidth, Ellipsis.Omit);
+		const displayValue = item.formatValue ? item.formatValue(item.currentValue) : item.currentValue;
+		const valuePlain = truncateToWidth(String(displayValue ?? ""), valueMaxWidth, Ellipsis.Omit);
 		const hovered = !isSelected && this.#theme.hovered !== undefined && item.id === this.#hoveredItemId;
 		// De-emphasized rows (outside the active section) render as plain text
 		// under one dim wash so inner label/value colors don't fight it.

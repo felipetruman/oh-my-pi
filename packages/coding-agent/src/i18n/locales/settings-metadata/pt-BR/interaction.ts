@@ -234,6 +234,50 @@ export const interaction: SettingsLocaleTable = {
 		},
 	},
 	options: {
+		steeringMode: {
+			all: { label: "Todas", description: "Processa todas as mensagens enfileiradas de uma vez" },
+			"one-at-a-time": { label: "Uma por vez", description: "Processa uma mensagem por vez" },
+		},
+		followUpMode: {
+			all: { label: "Todas", description: "Processa todas as mensagens de acompanhamento de uma vez" },
+			"one-at-a-time": { label: "Uma por vez", description: "Processa uma mensagem de acompanhamento por vez" },
+		},
+		interruptMode: {
+			immediate: { label: "Imediato", description: "Interrompe imediatamente a execução da ferramenta" },
+			wait: { label: "Aguardar", description: "Aguarda a conclusão da ferramenta atual antes de interromper" },
+		},
+		doubleEscapeAction: {
+			rewind: { label: "Voltar", description: "Volta ao turno anterior no histórico" },
+			tree: { label: "Árvore", description: "Abre a visualização em árvore da sessão" },
+			none: { label: "Nenhum", description: "Não executa nenhuma ação especial" },
+		},
+		treeFilterMode: {
+			default: { label: "Padrão", description: "Filtro padrão da árvore" },
+			"no-tools": { label: "Sem ferramentas", description: "Oculta chamadas de ferramenta na árvore" },
+			"user-only": { label: "Apenas usuário", description: "Mostra apenas mensagens do usuário" },
+			"labeled-only": { label: "Apenas rotuladas", description: "Mostra apenas nós com rótulo" },
+			all: { label: "Todas", description: "Mostra todos os nós da árvore" },
+		},
+		"completion.notify": {
+			on: { label: "Ativado", description: "Emite notificação ao concluir o turno" },
+			off: { label: "Desativado", description: "Não emite notificação ao concluir" },
+		},
+		"error.notify": {
+			on: { label: "Ativado", description: "Emite notificação quando ocorre um erro" },
+			off: { label: "Desativado", description: "Não emite notificação de erro" },
+		},
+		"ask.notify": {
+			on: { label: "Ativado", description: "Emite notificação quando o agente faz uma pergunta" },
+			off: { label: "Desativado", description: "Não emite notificação para perguntas" },
+		},
+		"ttsr.contextMode": {
+			discard: { label: "Descartar", description: "Descarta contexto ao alternar" },
+			keep: { label: "Manter", description: "Mantém o contexto ao alternar" },
+		},
+		"ttsr.repeatMode": {
+			once: { label: "Uma vez", description: "Repete apenas uma vez" },
+			"after-gap": { label: "Após intervalo", description: "Repete após um intervalo de silêncio" },
+		},
 		"power.sleepPrevention": {
 			off: { label: "Desativado", description: "Não impede nenhuma suspensão" },
 			idle: {

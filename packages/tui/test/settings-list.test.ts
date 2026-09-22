@@ -645,4 +645,36 @@ describe("SettingsList", () => {
 		expect(list.routeSubmenuMouse({ leftClick: true } as never, 2, 7)).toBe(true);
 		expect(routed).toEqual([[2, 7, true]]);
 	});
+
+	it("uses formatValue to display currentValue without changing raw value or onChange callback", () => {
+		const changes: Array<[string, string]> = [];
+		const list = new SettingsList(
+			[
+				{
+					id: "toggle",
+					label: "Toggle",
+					currentValue: "false",
+					values: ["true", "false"],
+					formatValue: value => (value === "true" ? "Ativado" : "Desativado"),
+				},
+			],
+			5,
+			testTheme,
+			(id, value) => {
+				changes.push([id, value]);
+			},
+			() => {},
+		);
+
+		const rendered = list.render(60).join("\n");
+		expect(rendered).toContain("Desativado");
+		expect(rendered).not.toContain("false");
+
+		list.handleInput("\n"); // cycle value
+		expect(changes).toEqual([["toggle", "true"]]);
+
+		const afterCycle = list.render(60).join("\n");
+		expect(afterCycle).toContain("Ativado");
+		expect(afterCycle).not.toContain("true");
+	});
 });

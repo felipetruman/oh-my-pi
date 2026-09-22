@@ -43,7 +43,12 @@ import type {
 } from "../../config/settings-schema";
 import { SETTING_TABS, TAB_METADATA } from "../../config/settings-schema";
 import { getLocale, type LocaleId, onLocaleChange, t } from "../../i18n";
-import { localizedGroupLabel, localizedTabLabel } from "../../i18n/settings-metadata";
+import {
+	localizedGroupLabel,
+	localizedOptionText,
+	localizedTabLabel,
+	settingOptionOverrides,
+} from "../../i18n/settings-metadata";
 import { getCurrentThemeName, getSelectListTheme, getSettingsListTheme, theme } from "../../modes/theme/theme";
 import { AUTO_THINKING, type ConfiguredThinkingLevel } from "../../thinking";
 import { getTabBarTheme } from "../shared";
@@ -54,6 +59,33 @@ import { handleInputOrEscape, PluginSettingsComponent } from "./plugin-settings"
 import { getSettingDef, getSettingsForTab, type SettingDef } from "./settings-defs";
 import { SnapcompactShapePreview } from "./snapcompact-shape-preview";
 import { getPreset } from "./status-line/presets";
+
+const COMMON_PT_BR_ENUM_LABELS: Readonly<Record<string, string>> = {
+	auto: "Automático",
+	default: "Padrão",
+	none: "Nenhum",
+	off: "Desativado",
+	on: "Ativado",
+	always: "Sempre",
+	never: "Nunca",
+	unset: "Não definido",
+	enabled: "Ativado",
+	disabled: "Desativado",
+	standard: "Padrão",
+	session: "Sessão",
+	"per-call": "Por chamada",
+	"one-at-a-time": "Uma por vez",
+	all: "Todas",
+	immediate: "Imediato",
+	wait: "Aguardar",
+	rewind: "Voltar",
+	tree: "Árvore",
+	discard: "Descartar",
+	keep: "Manter",
+	once: "Uma vez",
+	"after-gap": "Após intervalo",
+	aggressive: "Agressivo",
+};
 
 /**
  * A submenu component for selecting from a list of options.
@@ -1020,6 +1052,7 @@ export class SettingsSelectorComponent implements Component {
 			description: def.description,
 			warning: def.warning,
 			changed: this.#isChanged(def, currentValue),
+			formatValue: (value: string) => this.#formatSettingDisplayValue(def, value),
 		};
 
 		switch (def.type) {
@@ -1087,6 +1120,54 @@ export class SettingsSelectorComponent implements Component {
 		}
 		return rawValue;
 	}
+	#getSubmenuOptions(
+		def: SettingDef & { type: "submenu" },
+	): ReadonlyArray<{ value: string; label: string; description?: string }> {
+		if (def.path === "defaultThinkingLevel") {
+			const levels: ConfiguredThinkingLevel[] = [AUTO_THINKING, ...this.context.availableThinkingLevels];
+			return levels.map(level => {
+				const baseOpt = def.options.find(o => o.value === level);
+				return baseOpt || { value: level, label: level };
+			});
+		}
+		if (def.path === "theme.dark" || def.path === "theme.light") {
+			return this.context.availableThemes.map(t => ({ value: t, label: t }));
+		}
+		if (def.path === "composer.shape") {
+			return getComposerShapeOptions().map(opt => ({
+				value: opt.value,
+				label: localizedOptionText(def.path, opt.value, "label", opt.label),
+				description:
+					opt.description === undefined
+						? undefined
+						: localizedOptionText(def.path, opt.value, "description", opt.description),
+			}));
+		}
+		return def.options;
+	}
+
+	#formatSettingDisplayValue(def: SettingDef, value: string): string {
+		if (def.type === "text" || def.type === "providerLimits" || def.type === "multiselect") {
+			return value;
+		}
+		if (def.type === "boolean") {
+			return value === "true" ? t("settings.boolean.true") : t("settings.boolean.false");
+		}
+		if (def.type === "submenu") {
+			const options = this.#getSubmenuOptions(def);
+			const match = options.find(o => o.value === value);
+			if (match) return match.label;
+		}
+		const override = settingOptionOverrides(def.path)?.[value]?.label;
+		if (override) return override;
+
+		if (getLocale() === "pt-BR") {
+			const common = COMMON_PT_BR_ENUM_LABELS[value];
+			if (common) return common;
+		}
+
+		return value;
+	}
 
 	/**
 	 * Create a submenu for a submenu-type setting.
@@ -1096,21 +1177,7 @@ export class SettingsSelectorComponent implements Component {
 		currentValue: string,
 		done: (value?: string) => void,
 	): Container {
-		let options = def.options;
-
-		// Special case: inject runtime options for thinking level
-		if (def.path === "defaultThinkingLevel") {
-			// Prepend `auto`; the rest are the model's runtime-supported efforts.
-			const levels: ConfiguredThinkingLevel[] = [AUTO_THINKING, ...this.context.availableThinkingLevels];
-			options = levels.map(level => {
-				const baseOpt = options.find(o => o.value === level);
-				return baseOpt || { value: level, label: level };
-			});
-		} else if (def.path === "theme.dark" || def.path === "theme.light") {
-			options = this.context.availableThemes.map(t => ({ value: t, label: t }));
-		} else if (def.path === "composer.shape") {
-			options = getComposerShapeOptions();
-		}
+		const options = this.#getSubmenuOptions(def);
 		// Preview handlers
 		let onPreview: ((value: string) => void | Promise<void>) | undefined;
 		let onPreviewCancel: (() => void) | undefined;

@@ -273,6 +273,12 @@ export const model: SettingsLocaleTable = {
 		},
 	},
 	options: {
+		"advisor.syncBacklog": {
+			off: { label: "Desativado", description: "Não sincroniza pendências" },
+			"1": { label: "1 turno" },
+			"3": { label: "3 turnos" },
+			"5": { label: "5 turnos" },
+		},
 		"advisor.immuneTurns": {
 			"0": { label: "0 turnos", description: "Permite que toda ressalva/bloqueio interrompa." },
 			"1": { label: "1 turno" },

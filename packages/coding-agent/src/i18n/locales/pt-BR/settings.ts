@@ -1,6 +1,8 @@
 import type { TranslationTable } from "../../keys";
 
 export const settings: TranslationTable = {
+	"settings.boolean.false": "Desativado",
+	"settings.boolean.true": "Ativado",
 	"settings.hints.footer":
 		"Enter/Espa\u00e7o para alterar \u00b7 {nav} \u00b7 Digite para buscar \u00b7 Esc para fechar",
 	"settings.hints.navSections": "Tab para pular se\u00e7\u00f5es \u00b7 \u2190/\u2192 para trocar de aba",

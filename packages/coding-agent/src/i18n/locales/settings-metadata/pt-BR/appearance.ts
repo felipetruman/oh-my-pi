@@ -189,6 +189,45 @@ export const appearance: SettingsLocaleTable = {
 			nerd: { label: "Nerd Font", description: "Requer uma Nerd Font" },
 			ascii: { label: "ASCII", description: "Compatibilidade máxima" },
 		},
+		"tui.hyperlinks": {
+			off: { label: "Desativado", description: "Nunca emite hyperlinks OSC 8" },
+			auto: { label: "Automático", description: "Emite hyperlinks quando o terminal suportar" },
+			always: { label: "Sempre", description: "Sempre emite hyperlinks OSC 8" },
+		},
+		"composer.shape": {
+			band: {
+				label: "Faixa de Status (Padrão)",
+				description: "Faixa suave de status sobre um prompt curvado, sem moldura",
+			},
+			box: {
+				label: "Caixa Arredondada",
+				description: "Barra de status embutida na borda superior, prompt compacto de 2 linhas",
+			},
+			claude: {
+				label: "Claude Code",
+				description: "Linhas horizontais completas acima e abaixo, barra de status na parte inferior",
+			},
+			pi: {
+				label: "Pi",
+				description: "Linhas horizontais emolduradas com barra de status na parte inferior",
+			},
+			borderless: {
+				label: "Sem Bordas",
+				description: "Glifo de prompt limpo com barra de status na parte inferior, sem bordas",
+			},
+			rule: {
+				label: "Dock de Linha Superior",
+				description: "Linha superior única com status fixado nela e abaixo",
+			},
+			field: {
+				label: "Campo Compacto",
+				description: "Campo preenchido de uma linha com extremidades de destaque",
+			},
+			rail: {
+				label: "Trilho de Destaque",
+				description: "Campo preenchido de uma linha ancorado por um trilho de destaque",
+			},
+		},
 		"statusLine.preset": {
 			default: { label: "Padrão", description: "Modelo, caminho, git, contexto, tokens, custo" },
 			minimal: { label: "Mínimo", description: "Apenas caminho e git" },

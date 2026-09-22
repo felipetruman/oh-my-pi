@@ -82,4 +82,18 @@ export const shell: SettingsLocaleTable = {
 				"Caminho opcional para um executável Python específico. Quando definido, a descoberta automática do runtime Python é ignorada.",
 		},
 	},
+	options: {
+		"bash.direnv": {
+			auto: { label: "Automático", description: "Carrega ambientes direnv automaticamente" },
+			off: { label: "Desativado", description: "Não carrega ambientes direnv" },
+		},
+		"shellMinimizer.sourceOutlineLevel": {
+			default: { label: "Padrão", description: "Esboço padrão para saídas longas de shell" },
+			aggressive: { label: "Agressivo", description: "Esboço agressivo para saídas longas de shell" },
+		},
+		"python.kernelMode": {
+			session: { label: "Sessão", description: "Mantém o kernel vivo durante toda a sessão" },
+			"per-call": { label: "Por chamada", description: "Inicia um novo kernel para cada chamada" },
+		},
+	},
 };

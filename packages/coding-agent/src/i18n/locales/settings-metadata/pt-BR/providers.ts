@@ -200,6 +200,11 @@ export const providers: SettingsLocaleTable = {
 		},
 	},
 	options: {
+		"providers.openai-codex.codeMode": {
+			off: { label: "Desativado", description: "Não força o modo de código" },
+			on: { label: "Ativado", description: "Força o modo de código" },
+			auto: { label: "Automático", description: "Ativa automaticamente quando apropriado" },
+		},
 		"providers.webSearchOrder": {
 			perplexity: {
 				label: "Perplexity",

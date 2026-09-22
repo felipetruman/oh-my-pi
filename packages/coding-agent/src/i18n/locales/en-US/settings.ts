@@ -4,6 +4,8 @@
  * `locales/settings-metadata/`.
  */
 export const settings = {
+	"settings.boolean.false": "false",
+	"settings.boolean.true": "true",
 	"settings.hints.footer": "Enter/Space to change \u00b7 {nav} \u00b7 Type to search \u00b7 Esc to close",
 	"settings.hints.navSections": "Tab to jump sections \u00b7 \u2190/\u2192 to switch tabs",
 	"settings.hints.navTabs": "Tab to switch tabs",
