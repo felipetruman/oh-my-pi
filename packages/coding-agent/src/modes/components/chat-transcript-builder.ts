@@ -28,6 +28,7 @@ import {
 	type SkillPromptDetails,
 } from "../../session/messages";
 import { type TranscriptEntry, transcriptEntryMessage } from "../../session/session-context";
+import type { ThinkingDisplayTranslator } from "../../utils/thinking-translation";
 import { theme } from "../theme/theme";
 import {
 	assistantHasVisibleContent,
@@ -71,6 +72,7 @@ export interface ChatTranscriptBuilderDeps {
 	cwd: string;
 	hideThinkingBlock?: () => boolean;
 	proseOnlyThinking?: () => boolean;
+	thinkingTranslator?: ThinkingDisplayTranslator;
 	/** Session-scoped resolved destinations for model-authored Markdown links. */
 	linkTargets?: ReadonlyMap<string, string>;
 	requestRender: () => void;
@@ -394,6 +396,7 @@ export class ChatTranscriptBuilder {
 			this.deps.ui.imageBudget,
 			proseOnlyThinking,
 			this.deps.linkTargets,
+			this.deps.thinkingTranslator,
 		);
 		assistantComponent.setImagesVisible(settings.get("terminal.showImages"));
 		assistantComponent.setToolResultImagesVisible(!settings.get("display.hideToolActivity"));
@@ -430,6 +433,7 @@ export class ChatTranscriptBuilder {
 				undefined,
 				proseOnlyThinking,
 				this.deps.linkTargets,
+				this.deps.thinkingTranslator,
 			);
 			component.setImagesVisible(settings.get("terminal.showImages"));
 			component.setToolResultImagesVisible(!settings.get("display.hideToolActivity"));

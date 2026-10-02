@@ -613,7 +613,8 @@ export class EventController {
 			// dominates the CPU profile of an idle-looking streaming session
 			// (issue #7443). Only the latest snapshot is meaningful; non-update
 			// events flush the pending snapshot first so ordering is preserved.
-			if (event.type === "message_update") {
+			// thinking_end é uma fronteira: o próximo delta não pode sobrescrevê-la.
+			if (event.type === "message_update" && event.assistantMessageEvent?.type !== "thinking_end") {
 				this.#enqueueMessageUpdate(event);
 				return;
 			}
@@ -1402,6 +1403,24 @@ export class EventController {
 					closed ? undefined : { transient: true },
 				);
 				if (closed) component?.markTranscriptBlockFinalized();
+			}
+			if (event.assistantMessageEvent?.type === "thinking_end") {
+				const completedThinking = event.message.content[event.assistantMessageEvent.contentIndex];
+				if (completedThinking?.type === "thinking") {
+					const beforeToolsIndex = timeline.beforeTools.content.indexOf(completedThinking);
+					if (beforeToolsIndex >= 0) {
+						// Atualiza o rawThinking sem antecipar o reveal dos demais blocos.
+						this.#streamingReveal.resyncVisibility();
+						this.ctx.streamingComponent.markThinkingBlockComplete(beforeToolsIndex);
+					} else {
+						for (const [toolCallId, segment] of timeline.afterToolCalls) {
+							const contentIndex = segment.content.indexOf(completedThinking);
+							if (contentIndex < 0) continue;
+							this.#postToolAssistantComponents.get(toolCallId)?.markThinkingBlockComplete(contentIndex);
+							break;
+						}
+					}
+				}
 			}
 
 			// Update working message with intent from streamed tool arguments

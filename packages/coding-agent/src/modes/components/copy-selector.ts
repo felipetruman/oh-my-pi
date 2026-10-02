@@ -34,6 +34,7 @@ import {
 } from "../../session/session-context";
 import type { SessionMessageEntry } from "../../session/session-entries";
 import { replaceTabs } from "../../tools/render-utils";
+import type { ThinkingDisplayTranslator } from "../../utils/thinking-translation";
 import { highlightCode, type ThemeColor, theme } from "../theme/theme";
 import { commandFromToolCall, extractBlocks, extractLinks } from "../utils/copy-targets";
 import {
@@ -63,6 +64,7 @@ export interface CopySelectorDeps {
 	cwd: string;
 	hideThinkingBlock?: () => boolean;
 	proseOnlyThinking?: () => boolean;
+	thinkingTranslator?: ThinkingDisplayTranslator;
 	linkTargets?: ReadonlyMap<string, string>;
 	requestRender: () => void;
 	/** The outlined content was chosen — copy it. `label` feeds the status line. */
@@ -156,6 +158,7 @@ export class CopySelectorComponent implements Component {
 			cwd: this.deps.cwd,
 			hideThinkingBlock: this.deps.hideThinkingBlock,
 			proseOnlyThinking: this.deps.proseOnlyThinking,
+			thinkingTranslator: this.deps.thinkingTranslator,
 			linkTargets: this.deps.linkTargets,
 			requestRender: this.deps.requestRender,
 		});

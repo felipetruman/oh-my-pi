@@ -171,6 +171,7 @@ import { getEditorCommand, openInEditor } from "../utils/external-editor";
 import { resumeCommand } from "../utils/resume-command";
 import { getSessionAccentAnsi, getSessionAccentHex } from "../utils/session-color";
 import { messageHasDisplayableThinking } from "../utils/thinking-display";
+import { ThinkingDisplayTranslator } from "../utils/thinking-translation";
 import {
 	disposeTerminalTitleState,
 	initTerminalTitleState,
@@ -798,6 +799,18 @@ export class InteractiveMode implements InteractiveModeContext {
 		return this.hideThinkingBlock || (thinkingOff && !this.hasDisplayableThinkingContent);
 	}
 	proseOnlyThinking = true;
+	#thinkingTranslators = new WeakMap<AgentSession, ThinkingDisplayTranslator>();
+	get thinkingTranslator(): ThinkingDisplayTranslator {
+		const session = this.viewSession;
+		let translator = this.#thinkingTranslators.get(session);
+		if (!translator) {
+			translator = new ThinkingDisplayTranslator((text, locale, signal) =>
+				session.translateThinkingForDisplay(text, locale, signal),
+			);
+			this.#thinkingTranslators.set(session, translator);
+		}
+		return translator;
+	}
 	compactionQueuedMessages: CompactionQueuedMessage[] = [];
 	pendingTools = new Map<string, ToolExecutionHandle>();
 	transcriptMessageComponents = new WeakMap<AgentMessage, Component>();
@@ -1029,6 +1042,9 @@ export class InteractiveMode implements InteractiveModeContext {
 	}
 
 	clearTransientSessionUi(): void {
+		this.#thinkingTranslators.get(this.session)?.clear();
+		if (this.viewSession !== this.session) this.#thinkingTranslators.get(this.viewSession)?.clear();
+		this.streamingComponent?.clearThinkingTranslationResults();
 		this.#hideSessionInfo();
 		if (this.loadingAnimation) {
 			this.loadingAnimation.stop();

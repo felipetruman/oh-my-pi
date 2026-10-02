@@ -702,7 +702,8 @@ export class SelectorController {
 						child.setHideThinkingBlock(this.ctx.effectiveHideThinkingBlock);
 					}
 				}
-				this.ctx.ui.requestRender(true);
+				this.ctx.chatContainer.resetStableEmission();
+				this.ctx.ui.resetDisplay();
 				break;
 			case "proseOnlyThinking":
 				this.ctx.proseOnlyThinking = value as boolean;
@@ -711,10 +712,22 @@ export class SelectorController {
 						child.setProseOnlyThinking(value as boolean);
 					}
 				}
-				this.ctx.ui.requestRender(true);
+				this.ctx.chatContainer.resetStableEmission();
+				this.ctx.ui.resetDisplay();
 				break;
 			case "omitThinking":
 				this.ctx.session.agent.hideThinkingSummary = value as boolean;
+				break;
+			case "display.locale":
+			case "display.translateThinking":
+				this.ctx.thinkingTranslator?.clear();
+				this.ctx.streamingComponent?.clearThinkingTranslationResults();
+				// Reprojeta o snapshot atual sem tratar o streaming como mensagem estável.
+				this.ctx.streamingComponent?.invalidate();
+				this.ctx.chatContainer.resetStableEmission();
+				this.ctx.rebuildChatFromMessages();
+				// Descarta também linhas antigas já aposentadas no scrollback.
+				this.ctx.ui.resetDisplay();
 				break;
 			case "display.cacheMissMarker":
 				// Rebuild re-runs the usage-based detection under the new setting so
@@ -1410,6 +1423,7 @@ export class SelectorController {
 			cwd: this.ctx.sessionManager.getCwd(),
 			hideThinkingBlock: () => this.ctx.effectiveHideThinkingBlock,
 			proseOnlyThinking: () => this.ctx.proseOnlyThinking,
+			thinkingTranslator: this.ctx.thinkingTranslator,
 			linkTargets: getAssistantMessageLinkTargets(this.ctx),
 			requestRender: () => this.ctx.ui.requestRender(),
 			siblingPaths: entryId => this.#siblingBranchPaths(entryId),
@@ -1541,6 +1555,7 @@ export class SelectorController {
 			cwd: this.ctx.sessionManager.getCwd(),
 			hideThinkingBlock: () => this.ctx.effectiveHideThinkingBlock,
 			proseOnlyThinking: () => this.ctx.proseOnlyThinking,
+			thinkingTranslator: this.ctx.thinkingTranslator,
 			linkTargets: getAssistantMessageLinkTargets(this.ctx),
 			requestRender: () => this.ctx.ui.requestRender(),
 			onPick: (content, label) => {
@@ -2486,6 +2501,7 @@ export class SelectorController {
 			cwd: this.ctx.sessionManager.getCwd(),
 			hideThinkingBlock: () => this.ctx.effectiveHideThinkingBlock,
 			proseOnlyThinking: () => this.ctx.proseOnlyThinking,
+			thinkingTranslator: this.ctx.thinkingTranslator,
 			focusAgent: id => this.ctx.focusAgentSession(id),
 			sessionFile: this.ctx.sessionManager.getSessionFile() ?? null,
 		});

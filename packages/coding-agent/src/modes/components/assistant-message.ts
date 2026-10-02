@@ -14,12 +14,15 @@ import {
 import { formatNumber } from "@oh-my-pi/pi-utils";
 import chalk from "@oh-my-pi/pi-utils/chalk";
 import { LRUCache } from "@oh-my-pi/pi-utils/lru";
+import { settings } from "../../config/settings";
 import type { AssistantThinkingRenderer } from "../../extensibility/extensions/types";
+import { getLocale, t } from "../../i18n";
 import { ensureThemeSync, getMarkdownTheme, theme } from "../../modes/theme/theme";
 import { resolveImageOptions } from "../../tools/render-utils";
 import { WidthAwareText } from "../../tui";
 import { convertImageToPng } from "../../utils/image-loading";
 import { canonicalizeMessage, formatThinkingForDisplay, hasDisplayableThinking } from "../../utils/thinking-display";
+import type { ThinkingDisplayTranslator, ThinkingTranslationState } from "../../utils/thinking-translation";
 import { resolveAssistantErrorPresentation } from "../utils/transcript-render-helpers";
 import { type CacheInvalidation, CacheInvalidationMarkerComponent } from "./cache-invalidation-marker";
 import { formatErrorBlock } from "./error-block";
@@ -77,7 +80,8 @@ function resolveThinkingDisplay(block: ThinkingContentBlock, proseOnly: boolean)
 	const formatted = rawThinking !== undefined ? block.thinking : formatThinkingForDisplay(block.thinking, proseOnly);
 	return {
 		text: formatted.trim(),
-		visible: hasDisplayableThinking(rawThinking ?? block.thinking, formatted),
+		visible:
+			rawThinking !== undefined ? formatted.trim().length > 0 : hasDisplayableThinking(block.thinking, formatted),
 	};
 }
 
@@ -236,6 +240,18 @@ export class AssistantMessageComponent extends Container {
 	/** Whether the last updateContent carried an in-flight streaming partial; such
 	 *  renders bypass the markdown module LRU (see Markdown.transientRenderCache). */
 	#lastUpdateTransient = false;
+	#thinkingTranslationPending = false;
+	#thinkingTranslationsByBlock = new Map<
+		number,
+		{ input: string; locale: string; state: Exclude<ThinkingTranslationState, { status: "pending" }> }
+	>();
+	#completedThinkingBlocks = new Set<number>();
+	#disposed = false;
+	readonly #onThinkingTranslated = (): void => {
+		if (this.#disposed || !this.#lastMessage) return;
+		this.updateContent(this.#lastMessage, { transient: this.#lastUpdateTransient });
+		this.onImageUpdate?.();
+	};
 	// Fast-path state: reuse Markdown children when message shape is stable during streaming.
 	#fastPathKey: string | undefined;
 	#fastPathItems:
@@ -344,31 +360,65 @@ export class AssistantMessageComponent extends Container {
 		return { index, block, split: splitReaction(block.text) };
 	}
 
-	/**
-	 * Display form of `message` with the reaction handled: stripped and
-	 * forwarded to the target once resolved, withheld entirely while a streaming
-	 * prefix could still become one, and left verbatim when there is no target.
-	 */
+	/** Projeta reação e tradução somente na cópia visual; a mensagem original permanece intacta. */
 	#displayMessage(message: AssistantMessage, transient: boolean): AssistantMessage {
+		let content = message.content;
 		const opening = this.#openingText(message);
-		if (!opening) return message;
-		const { index, block, split } = opening;
-		let text: string;
-		if (split.emoji !== undefined) {
-			if (this.#reaction !== split.emoji) {
-				this.#reaction = split.emoji;
-				this.#reactionTarget?.setReaction(split.emoji);
+		if (opening) {
+			const { index, block, split } = opening;
+			let text: string | undefined;
+			if (split.emoji !== undefined) {
+				if (this.#reaction !== split.emoji) {
+					this.#reaction = split.emoji;
+					this.#reactionTarget?.setReaction(split.emoji);
+				}
+				if (this.#reactionTarget) text = split.body;
+			} else if (split.pending && transient) {
+				text = "";
 			}
-			if (!this.#reactionTarget) return message;
-			text = split.body;
-		} else if (split.pending && transient) {
-			text = "";
-		} else {
-			return message;
+			if (text !== undefined) {
+				content = content.slice();
+				content[index] = { ...block, text };
+			}
 		}
-		const content = message.content.slice();
-		content[index] = { ...block, text };
-		return { ...message, content };
+
+		this.#thinkingTranslationPending = false;
+		const locale = getLocale();
+		if (!this.hideThinkingBlock && locale === "pt-BR" && settings.get("display.translateThinking")) {
+			for (let index = 0; index < content.length; index++) {
+				const block = content[index]!;
+				if (block.type !== "thinking") continue;
+				const rawThinking = (block as DisplayThinkingContentBlock).rawThinking ?? block.thinking;
+				const formatted = formatThinkingForDisplay(rawThinking, this.proseOnlyThinking);
+				// thinking_end confirma o original completo, mesmo com reveal ainda parcial.
+				const thinkingTransient =
+					transient && !this.#completedThinkingBlocks.has(index) && index === content.length - 1;
+				if (!hasDisplayableThinking(rawThinking, formatted) && !thinkingTransient) continue;
+				const saved = this.#thinkingTranslationsByBlock.get(index);
+				if (saved && (saved.input !== formatted || saved.locale !== locale)) {
+					this.#thinkingTranslationsByBlock.delete(index);
+				}
+				let state: ThinkingTranslationState | undefined =
+					!thinkingTransient && saved?.input === formatted && saved.locale === locale ? saved.state : undefined;
+				if (!thinkingTransient && !state) {
+					state = this.thinkingTranslator?.schedule(formatted, locale, this.#onThinkingTranslated);
+					if (state && state.status !== "pending") {
+						this.#thinkingTranslationsByBlock.set(index, { input: formatted, locale, state });
+					}
+				}
+				const pending = thinkingTransient || state?.status === "pending";
+				this.#thinkingTranslationPending ||= pending;
+				const thinking = pending
+					? t("hud.thinking.translationPending")
+					: state?.status === "translated"
+						? state.text
+						: t("hud.thinking.translationFailed");
+				if (content === message.content) content = content.slice();
+				const displayBlock: DisplayThinkingContentBlock = { ...block, thinking, rawThinking };
+				content[index] = displayBlock;
+			}
+		}
+		return content === message.content ? message : { ...message, content };
 	}
 	constructor(
 		message?: AssistantMessage,
@@ -378,6 +428,7 @@ export class AssistantMessageComponent extends Container {
 		private readonly imageBudget?: ImageBudget,
 		private proseOnlyThinking = true,
 		linkTargets?: ReadonlyMap<string, string>,
+		private readonly thinkingTranslator?: ThinkingDisplayTranslator,
 	) {
 		super();
 		ensureThemeSync();
@@ -440,8 +491,16 @@ export class AssistantMessageComponent extends Container {
 		}
 	}
 
+	clearThinkingTranslationResults(): void {
+		this.#thinkingTranslationsByBlock.clear();
+	}
+
 	setHideThinkingBlock(hide: boolean): void {
+		if (this.hideThinkingBlock === hide) return;
 		this.hideThinkingBlock = hide;
+		if (this.#lastMessage) {
+			this.updateContent(this.#lastMessage, { transient: this.#lastUpdateTransient });
+		}
 	}
 
 	/**
@@ -457,10 +516,17 @@ export class AssistantMessageComponent extends Container {
 	}
 
 	setProseOnlyThinking(proseOnly: boolean): void {
+		if (this.proseOnlyThinking === proseOnly) return;
 		this.proseOnlyThinking = proseOnly;
+		if (this.#lastMessage) {
+			this.updateContent(this.#lastMessage, { transient: this.#lastUpdateTransient });
+		}
 	}
 
 	override dispose(): void {
+		this.#disposed = true;
+		this.thinkingTranslator?.unsubscribe(this.#onThinkingTranslated);
+		this.#thinkingTranslationsByBlock.clear();
 		this.#stopThinkingAnimation();
 		super.dispose();
 	}
@@ -487,7 +553,7 @@ export class AssistantMessageComponent extends Container {
 	#thinkingDotsLabel(): string {
 		const glyph = THINKING_DOTS_FRAMES[this.#thinkingDotsFrame % THINKING_DOTS_FRAMES.length] ?? "…";
 		const coloredGlyph = theme.fg("thinkingText", glyph);
-		const thinkingLabel = theme.fg("muted", " Thinking");
+		const thinkingLabel = theme.fg("muted", ` ${t("hud.thinking.label")}`);
 		const rate = Math.min(SPEED_MAX, sharedSpeedTracker.getSpeed());
 		// The numeric badge ("<total> · <rate> toks/s") only renders while this block
 		// is genuinely streaming provider tokens. A block that has observed no token
@@ -580,7 +646,7 @@ export class AssistantMessageComponent extends Container {
 	}
 
 	isTranscriptBlockFinalized(): boolean {
-		return this.#transcriptBlockFinalized;
+		return this.#transcriptBlockFinalized && !this.#thinkingTranslationPending;
 	}
 
 	override render(width: number): readonly string[] {
@@ -634,7 +700,8 @@ export class AssistantMessageComponent extends Container {
 	 * every guard skips publication and nothing ever retracts it.
 	 */
 	#publishStableSnapshot(rendered: readonly string[], width: number): void {
-		if (!this.#midStreamPublication) return;
+		// Placeholders ainda podem mudar, inclusive após a fronteira pré-tool-call.
+		if (!this.#midStreamPublication || this.#thinkingTranslationPending) return;
 		const parts = this.#currentStableSnapshot();
 		if (!parts) return;
 		const last = parts.at(-1);
@@ -746,16 +813,26 @@ export class AssistantMessageComponent extends Container {
 		return this.#blockVersion;
 	}
 
+	markThinkingBlockComplete(contentIndex: number): void {
+		if (this.#completedThinkingBlocks.has(contentIndex)) return;
+		this.#completedThinkingBlocks.add(contentIndex);
+		if (this.#lastMessage) {
+			this.updateContent(this.#lastMessage, { transient: this.#lastUpdateTransient });
+		}
+	}
+
 	markTranscriptBlockFinalized(): void {
 		this.#transcriptBlockFinalized = true;
 		this.#stableRenderCache.clear();
 		this.#stopThinkingAnimation();
-		// If the live pulse was on screen when the block sealed, drop the fast path
-		// and rebuild so the placeholder is removed — finalized blocks never animate.
+		// Remove o pulso ao fechar o bloco, inclusive antes de message_end.
 		if (this.#thinkingDots) {
 			this.#fastPathKey = undefined;
 			this.#fastPathItems = undefined;
-			if (this.#lastMessage) this.updateContent(this.#lastMessage, { transient: this.#lastUpdateTransient });
+		}
+		if (this.#lastMessage && (this.#lastUpdateTransient || this.#thinkingDots)) {
+			// A fronteira pré-tool confirma que o texto está estável para tradução.
+			this.updateContent(this.#lastMessage);
 		}
 	}
 

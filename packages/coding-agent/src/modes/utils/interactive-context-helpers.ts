@@ -110,6 +110,7 @@ export function createAssistantMessageComponent(
 		ctx.ui.imageBudget,
 		ctx.proseOnlyThinking,
 		linkTargets,
+		ctx.thinkingTranslator,
 	);
 	component.setImagesVisible(ctx.settings.get("terminal.showImages"));
 	component.setToolResultImagesVisible(!ctx.hideToolActivity);

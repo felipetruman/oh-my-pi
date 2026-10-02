@@ -36,6 +36,7 @@ import {
 import type { MessageRenderer } from "../../extensibility/extensions/types";
 import { t } from "../../i18n";
 import type { TranscriptEntry } from "../../session/session-context";
+import type { ThinkingDisplayTranslator } from "../../utils/thinking-translation";
 import { theme } from "../theme/theme";
 import {
 	matchesAppToolsExpand,
@@ -73,6 +74,7 @@ export interface RewindSelectorDeps {
 	cwd: string;
 	hideThinkingBlock?: () => boolean;
 	proseOnlyThinking?: () => boolean;
+	thinkingTranslator?: ThinkingDisplayTranslator;
 	linkTargets?: ReadonlyMap<string, string>;
 	requestRender: () => void;
 	/** Sibling branch paths of `entryId`'s turn (excluding the turn itself). */
@@ -151,6 +153,7 @@ export class RewindSelectorComponent implements Component {
 			cwd: this.deps.cwd,
 			hideThinkingBlock: this.deps.hideThinkingBlock,
 			proseOnlyThinking: this.deps.proseOnlyThinking,
+			thinkingTranslator: this.deps.thinkingTranslator,
 			linkTargets: this.deps.linkTargets,
 			requestRender: this.deps.requestRender,
 		});
