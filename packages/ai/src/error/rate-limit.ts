@@ -109,6 +109,7 @@ export function isDashScopeTokenLimitText(errorMessage: string): boolean {
 
 const GOOGLE_RPC_ERROR_INFO_TYPE = "type.googleapis.com/google.rpc.ErrorInfo";
 const ANTIGRAVITY_MODEL_QUOTA_PATTERN = /\bexhausted your capacity on this model\b/i;
+const GOOGLE_AMBIGUOUS_RESOURCE_EXHAUSTED_PATTERN = /^Resource has been exhausted \(e\.g\. check quota\)\.?$/i;
 const LONG_RATE_LIMIT_DELAY_MS = 5 * 60 * 1000;
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
@@ -140,7 +141,12 @@ function parseGoogleRpcRateLimitReason(errorMessage: string): RateLimitReason | 
 	if (typeof error?.status !== "string" || error.status.trim().toUpperCase() !== "RESOURCE_EXHAUSTED") {
 		return undefined;
 	}
-	if (!Array.isArray(error.details)) return undefined;
+	if (!Array.isArray(error.details)) {
+		if (typeof error.message === "string" && GOOGLE_AMBIGUOUS_RESOURCE_EXHAUSTED_PATTERN.test(error.message.trim())) {
+			return "MODEL_CAPACITY_EXHAUSTED";
+		}
+		return undefined;
+	}
 
 	for (const value of error.details) {
 		const detail = asRecord(value);

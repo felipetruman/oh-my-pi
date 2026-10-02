@@ -57,12 +57,19 @@ describe("parseRateLimitReason", () => {
 		).toBe("QUOTA_EXHAUSTED");
 	});
 
-	// "Resource has been exhausted (e.g. check quota)" is a quota/daily-limit error — long wait.
-	// Only the literal phrase "resource exhausted" (gRPC status name) is MODEL_CAPACITY.
-	it("classifies 'Resource has been exhausted (e.g. check quota)' as QUOTA_EXHAUSTED", () => {
-		expect(
-			parseRateLimitReason("Cloud Code Assist API error (429): Resource has been exhausted (e.g. check quota)."),
-		).toBe("QUOTA_EXHAUSTED");
+	// Google's generic RESOURCE_EXHAUSTED body can mean unavailable serving
+	// capacity even when the account reports quota remaining. Only explicit
+	// quota details justify blocking the credential.
+	it("keeps generic Google RESOURCE_EXHAUSTED as transient model capacity", () => {
+		const message = `Cloud Code Assist API error (429): ${JSON.stringify({
+			error: {
+				code: 429,
+				message: "Resource has been exhausted (e.g. check quota).",
+				status: "RESOURCE_EXHAUSTED",
+			},
+		})}`;
+		expect(parseRateLimitReason(message)).toBe("MODEL_CAPACITY_EXHAUSTED");
+		expect(isUsageLimitOutcome(429, message)).toBe(false);
 	});
 
 	it("classifies 'resource exhausted' (space phrase) as MODEL_CAPACITY_EXHAUSTED", () => {
