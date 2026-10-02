@@ -104,3 +104,53 @@ describe("Google OAuth account verification", () => {
 		);
 	});
 });
+describe("Google Gemini CLI paid-tier onboarding", () => {
+	const savedProject = {
+		GOOGLE_CLOUD_PROJECT: process.env.GOOGLE_CLOUD_PROJECT,
+		GOOGLE_CLOUD_PROJECT_ID: process.env.GOOGLE_CLOUD_PROJECT_ID,
+	};
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+		for (const [key, value] of Object.entries(savedProject)) {
+			if (value === undefined) delete process.env[key];
+			else process.env[key] = value;
+		}
+	});
+
+	function mockCodeAssist(onboardResult: Record<string, unknown>) {
+		delete process.env.GOOGLE_CLOUD_PROJECT;
+		delete process.env.GOOGLE_CLOUD_PROJECT_ID;
+		const onboardBodies: Record<string, unknown>[] = [];
+		vi.spyOn(globalThis, "fetch").mockImplementation((async (input: string | URL | Request, init?: RequestInit) => {
+			const url = String(input);
+			if (url.endsWith(":loadCodeAssist")) {
+				// Google AI Pro account that has not onboarded: default tier is paid, no project yet.
+				return Response.json({ allowedTiers: [{ id: "standard-tier", isDefault: true }] });
+			}
+			if (url.endsWith(":onboardUser")) {
+				onboardBodies.push(JSON.parse(String(init?.body)));
+				return Response.json({ done: true, ...onboardResult });
+			}
+			return new Response("unexpected", { status: 500 });
+		}) as typeof fetch);
+		return onboardBodies;
+	}
+
+	it("onboards a paid tier without GOOGLE_CLOUD_PROJECT and adopts the server-provisioned project", async () => {
+		const onboardBodies = mockCodeAssist({ response: { cloudaicompanionProject: { id: "managed-project-123" } } });
+
+		const result = await runProjectHook("user@example.com");
+
+		expect(result.projectId).toBe("managed-project-123");
+		expect(onboardBodies).toHaveLength(1);
+		expect(onboardBodies[0]?.tierId).toBe("standard-tier");
+		expect(onboardBodies[0]?.cloudaicompanionProject).toBeUndefined();
+	});
+
+	it("still requires a project when onboarding provisions none", async () => {
+		mockCodeAssist({ response: {} });
+
+		await expect(runProjectHook("user@example.com")).rejects.toThrow("GOOGLE_CLOUD_PROJECT");
+	});
+});

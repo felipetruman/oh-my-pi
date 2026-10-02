@@ -170,14 +170,8 @@ async function discoverProject(
 	const tier = getDefaultTier(data.allowedTiers);
 	const tierId = tier?.id ?? TIER_FREE;
 
-	if (tierId !== TIER_FREE && !envProjectId) {
-		throw new AIError.OAuthError(
-			"This account requires setting the GOOGLE_CLOUD_PROJECT or GOOGLE_CLOUD_PROJECT_ID environment variable. " +
-				"See https://goo.gle/gemini-cli-auth-docs#workspace-gca",
-			{ kind: "configuration", provider: "google-gemini-cli" },
-		);
-	}
-
+	// Like the official Gemini CLI, paid tiers (e.g. Google AI Pro) onboard without a project:
+	// the server provisions one. Only a missing provisioned project requires GOOGLE_CLOUD_PROJECT.
 	onProgress?.("Provisioning Cloud Code Assist project (this may take a moment)...");
 
 	const onboardBody: Record<string, unknown> = {
