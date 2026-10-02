@@ -402,6 +402,7 @@ const SESSION_STOP_CONTINUATION_CAP = 8;
 import { LoopGuards, type StreamGuardsHost, StreamingEditGuard } from "./stream-guards";
 import { TodoTracker, type TodoTrackerHost } from "./todo-tracker";
 import { TtsrCoordinator, type TtsrCoordinatorHost } from "./ttsr-coordinator";
+import { translateThinkingText } from "../utils/thinking-translation-executor";
 
 const PLAN_MODE_REMINDER_MAX = 3;
 const POST_PROMPT_DRAIN_TIMEOUT_MS = 5_000;
@@ -8152,6 +8153,28 @@ export class AgentSession {
 		);
 		if (await this.#sessionGenerationChanged(sessionGeneration)) return null;
 		return !titleSignal.aborted && this.sessionId === parentSessionId ? title : null;
+	}
+
+	/** Traduz somente a projeção visual, em uma requisição isolada da conversa principal. */
+	async translateThinkingForDisplay(text: string, locale: string, signal?: AbortSignal): Promise<string | null> {
+		if (!this.settings.get("display.translateThinking") || locale !== "pt-BR") return text;
+		const translationSignal = signal
+			? AbortSignal.any([signal, this.#titleGenerationAbortController.signal])
+			: this.#titleGenerationAbortController.signal;
+		if (translationSignal.aborted) return null;
+		const parentSessionId = this.sessionId;
+		const sessionGeneration = this.#sessionGeneration;
+		const sessionId = Bun.randomUUIDv7();
+		const translated = await translateThinkingText(text, locale, {
+			registry: this.#modelRegistry,
+			settings: this.settings,
+			sessionId,
+			credentialSourceSessionId: parentSessionId,
+			metadataResolver: provider => buildSessionMetadata(sessionId, provider, this.#modelRegistry.authStorage),
+			signal: translationSignal,
+		});
+		if (await this.#sessionGenerationChanged(sessionGeneration)) return null;
+		return !translationSignal.aborted && this.sessionId === parentSessionId ? translated : null;
 	}
 
 	/** Capture before generation to detect interruption or disposal of a title request. */

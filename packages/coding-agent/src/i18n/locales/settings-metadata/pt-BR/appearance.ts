@@ -81,6 +81,11 @@ export const appearance: SettingsLocaleTable = {
 			label: "Idioma da Interface",
 			description: "Idioma usado pela interface de terminal do OMP",
 		},
+		"display.translateThinking": {
+			label: "Traduzir Raciocínio",
+			description:
+				"Traduz os blocos de raciocínio para o idioma ativo somente na exibição; as mensagens originais do assistente e os dados da sessão permanecem inalterados",
+		},
 		"tui.resizeScrollback": {
 			label: "Scrollback no Redimensionamento",
 			description:

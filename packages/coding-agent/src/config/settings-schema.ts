@@ -1206,6 +1206,18 @@ export const SETTINGS_SCHEMA = {
 			],
 		},
 	},
+	"display.translateThinking": {
+		type: "boolean",
+		default: false,
+		ui: {
+			tab: "appearance",
+			group: "Display",
+			label: "Translate Thinking",
+			description:
+				"Translate thinking blocks into the active interface language for display only; original assistant messages and session data remain unchanged",
+		},
+	},
+
 	"tui.resizeScrollback": {
 		type: "enum",
 		values: ["append", "rebuild", "preserve"] as const,

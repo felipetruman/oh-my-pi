@@ -80,6 +80,6 @@ export function getLocale(): LocaleId {
 
 /** Test seam: forget the selected language and the bound source. */
 export function resetLocaleForTest(): void {
-	currentLocale = DEFAULT_LOCALE;
+	setLocale(DEFAULT_LOCALE);
 	sourceBound = false;
 }

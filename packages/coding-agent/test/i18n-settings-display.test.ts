@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { resetSettingsForTest, Settings, settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { SETTING_TABS } from "@oh-my-pi/pi-coding-agent/config/settings-schema";
 import {
 	EN_US,
 	getLocale,
@@ -10,9 +9,9 @@ import {
 	resetLocaleForTest,
 	setLocale,
 	t,
-	translate,
 } from "@oh-my-pi/pi-coding-agent/i18n";
 import { SettingsSelectorComponent } from "@oh-my-pi/pi-coding-agent/modes/components/settings-selector";
+import { getSettingsForTab } from "@oh-my-pi/pi-coding-agent/modes/components/settings-defs";
 import { initTheme } from "@oh-my-pi/pi-coding-agent/modes/theme/theme";
 import { getProjectAgentDir, TempDir } from "@oh-my-pi/pi-utils";
 import { YAML } from "bun";
@@ -189,7 +188,7 @@ describe("settings localization & display formatting", () => {
 			{ onChange: () => {}, onCancel: () => {} },
 		);
 
-		for (const [w, h] of [
+		for (const [w] of [
 			[100, 30],
 			[120, 40],
 			[140, 40],
@@ -218,5 +217,33 @@ describe("settings localization & display formatting", () => {
 		const statusLine = config.statusLine as Record<string, unknown> | undefined;
 		expect(statusLine?.preset).toBe("default");
 		expect(statusLine?.preset).not.toBe("Padrão");
+	});
+
+	it("11. exposes thinking translation as an opt-in localized display setting", () => {
+		setLocale("pt-BR");
+		const definition = getSettingsForTab("appearance").find(
+			entry => entry.path === "display.translateThinking",
+		);
+
+		expect({
+			defaultValue: settings.get("display.translateThinking"),
+			type: definition?.type,
+			group: definition?.group,
+			label: definition?.label,
+			description: definition?.description,
+			thinkingLabel: t("hud.thinking.label"),
+			pending: t("hud.thinking.translationPending"),
+			failed: t("hud.thinking.translationFailed"),
+		}).toEqual({
+			defaultValue: false,
+			type: "boolean",
+			group: "Display",
+			label: "Traduzir Raciocínio",
+			description:
+				"Traduz os blocos de raciocínio para o idioma ativo somente na exibição; as mensagens originais do assistente e os dados da sessão permanecem inalterados",
+			thinkingLabel: "Pensando",
+			pending: "Traduzindo raciocínio…",
+			failed: "Não foi possível traduzir este bloco de raciocínio.",
+		});
 	});
 });
