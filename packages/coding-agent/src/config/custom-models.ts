@@ -9,7 +9,7 @@ import {
 import { logger } from "@oh-my-pi/pi-utils";
 import { type ConfigHeaderResolver, type ConfigHeaderSource, createConfigHeaderResolver } from "./resolve-config-value";
 import { type ModelPatch, mergeCompat, mergeRemoteCompactionConfig } from "./model-patch";
-import { parseModelString } from "./model-resolver";
+import { parseModelString } from "@oh-my-pi/pi-tui/overlays/model-selector";
 import type { ModelOverride, ProviderAuthMode } from "./models-config-schema";
 export interface CustomModelDefinitionLike extends ModelPatch {
 	id: string;
@@ -89,7 +89,9 @@ export function buildCustomModelOverlay(
 		tokenizer: modelDef.tokenizer,
 		supportsTools: modelDef.supportsTools,
 		cost: modelDef.cost,
+		promptCache: modelDef.promptCache,
 		contextWindow: modelDef.contextWindow,
+		maxContextWindow: modelDef.maxContextWindow,
 		maxTokens: modelDef.maxTokens,
 		omitMaxOutputTokens: modelDef.omitMaxOutputTokens,
 		preferWebsockets: modelDef.preferWebsockets,
@@ -133,6 +135,8 @@ export function finalizeCustomModel(model: CustomModelOverlay, options: CustomMo
 		imageInputDecoder: resolvedModel.imageInputDecoder,
 		...(supportsTools !== undefined ? { supportsTools } : {}),
 		cost,
+		promptCache: resolvedModel.promptCache,
+		promptCacheConfig: resolvedModel.promptCache,
 		contextWindow: resolvedModel.contextWindow ?? reference?.contextWindow ?? (options.useDefaults ? 128000 : null),
 		maxTokens: resolvedModel.maxTokens ?? reference?.maxTokens ?? (options.useDefaults ? 16384 : null),
 		headers: resolvedModel.headers,

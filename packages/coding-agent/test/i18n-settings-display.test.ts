@@ -1,18 +1,14 @@
+import { createSettingsHost } from "@oh-my-pi/pi-coding-agent/config/settings-ui";
+import { lookup } from "@oh-my-pi/pi-coding-agent/config/registry";
+import { createPluginSettingsHost } from "@oh-my-pi/pi-coding-agent/extensibility/plugins/settings-host";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { resetSettingsForTest, Settings, settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import {
-	EN_US,
-	getLocale,
-	PT_BR,
-	resetLocaleForTest,
-	setLocale,
-	t,
-} from "@oh-my-pi/pi-coding-agent/i18n";
-import { SettingsSelectorComponent } from "@oh-my-pi/pi-coding-agent/modes/components/settings-selector";
-import { getSettingsForTab } from "@oh-my-pi/pi-coding-agent/modes/components/settings-defs";
-import { initTheme } from "@oh-my-pi/pi-coding-agent/modes/theme/theme";
+import { EN_US, getLocale, PT_BR, resetLocaleForTest, setLocale, t } from "@oh-my-pi/pi-coding-agent/i18n";
+import { SettingsSelectorComponent } from "@oh-my-pi/pi-tui/overlays/settings-selector";
+import { getSettingsForTab } from "@oh-my-pi/pi-tui/overlays/settings-defs";
+import { initTheme } from "@oh-my-pi/pi-tui/theme/theme";
 import { getProjectAgentDir, TempDir } from "@oh-my-pi/pi-utils";
 import { YAML } from "bun";
 import { beginSettingsTest, restoreSettingsTestState, type SettingsTestState } from "./helpers/settings-test-state";
@@ -43,10 +39,17 @@ describe("settings localization & display formatting", () => {
 
 	it("1. renders boolean true in pt-BR as 'Ativado'", () => {
 		setLocale("pt-BR");
-		settings.set("colorBlindMode", true);
+		lookup("colorBlindMode")!.set(settings, true);
 
 		const selector = new SettingsSelectorComponent(
-			{ availableThinkingLevels: [], availableThemes: ["dark"], providers: [], cwd: process.cwd() },
+			{
+				availableThinkingLevels: [],
+				availableThemes: ["dark"],
+				providers: [],
+				thinkingLevel: undefined,
+				settings: createSettingsHost(),
+				plugins: createPluginSettingsHost(process.cwd()),
+			},
 			{ onChange: () => {}, onCancel: () => {} },
 		);
 
@@ -59,10 +62,17 @@ describe("settings localization & display formatting", () => {
 
 	it("2. renders boolean false in pt-BR as 'Desativado'", () => {
 		setLocale("pt-BR");
-		settings.set("colorBlindMode", false);
+		lookup("colorBlindMode")!.set(settings, false);
 
 		const selector = new SettingsSelectorComponent(
-			{ availableThinkingLevels: [], availableThemes: ["dark"], providers: [], cwd: process.cwd() },
+			{
+				availableThinkingLevels: [],
+				availableThemes: ["dark"],
+				providers: [],
+				thinkingLevel: undefined,
+				settings: createSettingsHost(),
+				plugins: createPluginSettingsHost(process.cwd()),
+			},
 			{ onChange: () => {}, onCancel: () => {} },
 		);
 
@@ -78,7 +88,14 @@ describe("settings localization & display formatting", () => {
 		const changes: Array<{ path: string; val: unknown }> = [];
 
 		const selector = new SettingsSelectorComponent(
-			{ availableThinkingLevels: [], availableThemes: ["dark"], providers: [], cwd: process.cwd() },
+			{
+				availableThinkingLevels: [],
+				availableThemes: ["dark"],
+				providers: [],
+				thinkingLevel: undefined,
+				settings: createSettingsHost(),
+				plugins: createPluginSettingsHost(process.cwd()),
+			},
 			{
 				onChange: (path, val) => changes.push({ path, val }),
 				onCancel: () => {},
@@ -92,14 +109,14 @@ describe("settings localization & display formatting", () => {
 
 		// Toggle with space
 		selector.handleInput(" ");
-		expect(settings.get("colorBlindMode")).toBe(true);
-		expect(typeof settings.get("colorBlindMode")).toBe("boolean");
+		expect(lookup("colorBlindMode")!.get(settings)).toBe(true);
+		expect(typeof lookup("colorBlindMode")!.get(settings)).toBe("boolean");
 		expect(changes).toEqual([{ path: "colorBlindMode", val: true }]);
 
 		// Toggle back
 		selector.handleInput(" ");
-		expect(settings.get("colorBlindMode")).toBe(false);
-		expect(typeof settings.get("colorBlindMode")).toBe("boolean");
+		expect(lookup("colorBlindMode")!.get(settings)).toBe(false);
+		expect(typeof lookup("colorBlindMode")!.get(settings)).toBe("boolean");
 		expect(changes[1]).toEqual({ path: "colorBlindMode", val: false });
 	});
 
@@ -108,7 +125,14 @@ describe("settings localization & display formatting", () => {
 		const changes: Array<{ path: string; val: unknown }> = [];
 
 		const selector = new SettingsSelectorComponent(
-			{ availableThinkingLevels: [], availableThemes: ["dark"], providers: [], cwd: process.cwd() },
+			{
+				availableThinkingLevels: [],
+				availableThemes: ["dark"],
+				providers: [],
+				thinkingLevel: undefined,
+				settings: createSettingsHost(),
+				plugins: createPluginSettingsHost(process.cwd()),
+			},
 			{
 				onChange: (path, val) => changes.push({ path, val }),
 				onCancel: () => {},
@@ -119,27 +143,34 @@ describe("settings localization & display formatting", () => {
 		selector.handleInput("\x1b[C"); // Model
 		selector.handleInput("\x1b[C"); // Interaction
 
-		expect(settings.get("steeringMode")).toBe("one-at-a-time");
+		expect(lookup("steeringMode")!.get(settings)).toBe("one-at-a-time");
 
 		// Cycle with space
 		selector.handleInput(" ");
-		expect(settings.get("steeringMode")).toBe("all");
-		expect(typeof settings.get("steeringMode")).toBe("string");
+		expect(lookup("steeringMode")!.get(settings)).toBe("all");
+		expect(typeof lookup("steeringMode")!.get(settings)).toBe("string");
 		expect(changes).toEqual([{ path: "steeringMode", val: "all" }]);
 
 		// Cycle back
 		selector.handleInput(" ");
-		expect(settings.get("steeringMode")).toBe("one-at-a-time");
-		expect(typeof settings.get("steeringMode")).toBe("string");
+		expect(lookup("steeringMode")!.get(settings)).toBe("one-at-a-time");
+		expect(typeof lookup("steeringMode")!.get(settings)).toBe("string");
 		expect(changes[1]).toEqual({ path: "steeringMode", val: "one-at-a-time" });
 	});
 
 	it("5. preserves expected behavior and true/false text in en-US locale", () => {
 		setLocale("en-US");
-		settings.set("colorBlindMode", false);
+		lookup("colorBlindMode")!.set(settings, false);
 
 		const selector = new SettingsSelectorComponent(
-			{ availableThinkingLevels: [], availableThemes: ["dark"], providers: [], cwd: process.cwd() },
+			{
+				availableThinkingLevels: [],
+				availableThemes: ["dark"],
+				providers: [],
+				thinkingLevel: undefined,
+				settings: createSettingsHost(),
+				plugins: createPluginSettingsHost(process.cwd()),
+			},
 			{ onChange: () => {}, onCancel: () => {} },
 		);
 
@@ -166,10 +197,17 @@ describe("settings localization & display formatting", () => {
 
 	it("8. formats submenus with localized labels on the outer list row", () => {
 		setLocale("pt-BR");
-		settings.set("statusLine.preset", "default");
+		lookup("statusLine.preset")!.set(settings, "default");
 
 		const selector = new SettingsSelectorComponent(
-			{ availableThinkingLevels: [], availableThemes: ["dark"], providers: [], cwd: process.cwd() },
+			{
+				availableThinkingLevels: [],
+				availableThemes: ["dark"],
+				providers: [],
+				thinkingLevel: undefined,
+				settings: createSettingsHost(),
+				plugins: createPluginSettingsHost(process.cwd()),
+			},
 			{ onChange: () => {}, onCancel: () => {} },
 		);
 
@@ -184,7 +222,14 @@ describe("settings localization & display formatting", () => {
 		setLocale("pt-BR");
 
 		const selector = new SettingsSelectorComponent(
-			{ availableThinkingLevels: [], availableThemes: ["dark"], providers: [], cwd: process.cwd() },
+			{
+				availableThinkingLevels: [],
+				availableThemes: ["dark"],
+				providers: [],
+				thinkingLevel: undefined,
+				settings: createSettingsHost(),
+				plugins: createPluginSettingsHost(process.cwd()),
+			},
 			{ onChange: () => {}, onCancel: () => {} },
 		);
 
@@ -204,8 +249,8 @@ describe("settings localization & display formatting", () => {
 
 	it("10. never writes translated labels into the persisted config file", async () => {
 		setLocale("pt-BR");
-		settings.set("colorBlindMode", true);
-		settings.set("statusLine.preset", "default");
+		lookup("colorBlindMode")!.set(settings, true);
+		lookup("statusLine.preset")!.set(settings, "default");
 		await settings.flush();
 
 		const configText = await Bun.file(path.join(agentDir, "config.yml")).text();
@@ -221,12 +266,12 @@ describe("settings localization & display formatting", () => {
 
 	it("11. exposes thinking translation as an opt-in localized display setting", () => {
 		setLocale("pt-BR");
-		const definition = getSettingsForTab("appearance").find(
+		const definition = getSettingsForTab(createSettingsHost().entries, "appearance").find(
 			entry => entry.path === "display.translateThinking",
 		);
 
 		expect({
-			defaultValue: settings.get("display.translateThinking"),
+			defaultValue: lookup("display.translateThinking")!.get(settings),
 			type: definition?.type,
 			group: definition?.group,
 			label: definition?.label,

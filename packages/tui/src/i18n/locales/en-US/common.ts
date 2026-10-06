@@ -1,0 +1,20 @@
+/** Generic words reused across surfaces. Owned by the i18n foundation. */
+export const common = {
+	"common.back": "Back",
+	"common.cancel": "Cancel",
+	"common.close": "Close",
+	"common.confirm": "Confirm",
+	"common.default": "Default",
+	"common.disabled": "Disabled",
+	"common.enabled": "Enabled",
+	"common.loading": "Loading",
+	"common.no": "No",
+	"common.none": "None",
+	"common.previewLabel": "Preview:",
+	"common.retry": "Retry",
+	"common.save": "Save",
+	"common.search": "Search",
+	"common.select": "Select",
+	"common.unlimited": "Unlimited",
+	"common.yes": "Yes",
+} as const;

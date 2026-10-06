@@ -5,45 +5,17 @@ import { formatModelString } from "../config/model-resolver";
 import modelMentionDescription from "../prompts/agents/model-mention.md" with { type: "text" };
 import { getBundledAgent } from "../task/agents";
 import type { AgentDefinition } from "../task/types";
+import {
+	MODEL_MENTION_RE,
+	type ModelMention,
+	modelMentionDisplayName,
+	modelMentionTag,
+} from "@oh-my-pi/pi-tui/prompt/model-mention-syntax";
 import type { SessionEntry } from "./session-entries";
 import type { SessionManager } from "./session-manager";
 
 /** Journal entry identifying a model the user authorized for delegation. */
 export const MODEL_MENTION_ENTRY_TYPE = "model_mention";
-/** Whitespace-delimited token; groups are leading delimiter and selector. Reset lastIndex before reuse. */
-export const MODEL_MENTION_RE = /(^|\s)\^([^\s^]+)(?=\s|$)/g;
-/** Submitted mention; groups are agent pseudonym and display name. */
-export const MODEL_MENTION_TAG_RE = /<model agent="(m\d+)" name="([^"]*)"\/>/g;
-
-/** A user-tagged model usable as a subagent pseudonym on the current session branch. */
-export interface ModelMention {
-	agent: string;
-	selector: string;
-	name: string;
-}
-
-/** Expand a composer atom back into its canonical model selector. */
-export function modelMentionToken(selector: string): string {
-	return `^${selector}`;
-}
-
-/** Encode a registered mention for the user message sent to the model. */
-export function modelMentionTag(mention: ModelMention): string {
-	return `<model agent="${mention.agent}" name="${mention.name}"/>`;
-}
-
-/** Use the catalog display name, without quotes, or the id when the name is empty. */
-export function modelMentionDisplayName(model: Model): string {
-	return (model.name.trim() || model.id).replaceAll('"', "");
-}
-
-/** Restore known submitted tags to editable selectors; leave unknown agents literal. */
-export function expandModelMentionTags(text: string, selectorFor: (agent: string) => string | undefined): string {
-	return text.replace(MODEL_MENTION_TAG_RE, (tag, agent: string) => {
-		const selector = selectorFor(agent);
-		return selector === undefined ? tag : modelMentionToken(selector);
-	});
-}
 
 /** Replay valid branch entries, keeping the first occurrence of each agent and selector. */
 export function readModelMentions(entries: readonly SessionEntry[]): ModelMention[] {
@@ -73,17 +45,21 @@ export interface ModelMentionHost {
 	sessionManager: SessionManager;
 	modelRegistry: ModelRegistry;
 	scopedModels(): ReadonlyArray<Model>;
+	/** User-authorized model agents inherited from the parent session. */
+	inheritedAgents?: readonly AgentDefinition[];
 }
 
 /** Owns branch-local pseudonyms for models explicitly tagged by the user. */
 export class ModelMentionRegistry {
 	readonly #host: ModelMentionHost;
+	readonly #inheritedAgents: readonly AgentDefinition[];
 	#mentions: ModelMention[] = [];
 	readonly #bySelector = new Map<string, ModelMention>();
 	readonly #agents = new Set<string>();
 
 	constructor(host: ModelMentionHost) {
 		this.#host = host;
+		this.#inheritedAgents = host.inheritedAgents ?? [];
 	}
 
 	/** Rebuild pseudonyms after resume, rewind, or a session switch. */
@@ -91,6 +67,9 @@ export class ModelMentionRegistry {
 		this.#mentions = readModelMentions(this.#host.sessionManager.getBranch());
 		this.#bySelector.clear();
 		this.#agents.clear();
+		for (const agent of this.#inheritedAgents) {
+			this.#agents.add(agent.name);
+		}
 		for (const mention of this.#mentions) {
 			this.#bySelector.set(mention.selector, mention);
 			this.#agents.add(mention.agent);
@@ -129,16 +108,22 @@ export class ModelMentionRegistry {
 		});
 	}
 
-	/** Expose tagged models as general-purpose task agents without changing the bundled template. */
+	/** Expose inherited and session-tagged models as general-purpose task agents. */
 	sessionAgents(): AgentDefinition[] {
 		const task = getBundledAgent("task");
 		if (!task) throw new Error("Bundled task agent is unavailable");
-		return this.#mentions.map(mention => ({
-			...task,
-			name: mention.agent,
-			description: prompt.render(modelMentionDescription, { name: mention.name, selector: mention.selector }),
-			model: [mention.selector],
-			filePath: undefined,
-		}));
+		const inheritedNames = new Set(this.#inheritedAgents.map(agent => agent.name));
+		return [
+			...this.#inheritedAgents,
+			...this.#mentions
+				.filter(mention => !inheritedNames.has(mention.agent))
+				.map(mention => ({
+					...task,
+					name: mention.agent,
+					description: prompt.render(modelMentionDescription, { name: mention.name, selector: mention.selector }),
+					model: [mention.selector],
+					filePath: undefined,
+				})),
+		];
 	}
 }

@@ -1,0 +1,39 @@
+#!/bin/sh
+set -eu
+
+account_env=$HOME/.config/omp/accounts/claude1.env
+
+if [ ! -r "$account_env" ]; then
+	echo "quota-checker: arquivo de conta não encontrado: $account_env" >&2
+	exit 2
+fi
+
+set -a
+. "$account_env"
+set +a
+
+if [ -z "${ANTHROPIC_OAUTH_TOKEN:-}" ]; then
+	echo "quota-checker: ANTHROPIC_OAUTH_TOKEN ausente em $account_env" >&2
+	exit 2
+fi
+
+if ! command -v bun >/dev/null 2>&1; then
+	echo "quota-checker: comando bun não encontrado no PATH" >&2
+	exit 127
+fi
+
+self=$0
+while [ -L "$self" ]; do
+	link=$(readlink "$self")
+	case $link in
+	/*) self=$link ;;
+	*) self=$(dirname "$self")/$link ;;
+	esac
+done
+scripts_dir=$(CDPATH= cd -- "$(dirname -- "$self")" && pwd -P)
+runner=$scripts_dir/quota-checker.ts
+launch_dir=${OMP_DEV_LAUNCH_DIR:-${HOME}/.omp/.dev-cwd}
+mkdir -p "$launch_dir"
+cd "$launch_dir"
+
+exec bun "$runner" "$@"

@@ -1,3 +1,4 @@
+import { cfgDisplayLocale } from "../modes/settings";
 import type { Settings } from "../config/settings";
 import { bindLocaleSource } from "./locale";
 
@@ -15,10 +16,10 @@ import { bindLocaleSource } from "./locale";
  */
 export function initLocaleFromSettings(instance: Settings): void {
 	bindLocaleSource({
-		read: () => instance.get("display.locale"),
+		read: () => cfgDisplayLocale.get(instance),
 		subscribe: onChange => {
-			instance.onEffectiveChange(path => {
-				if (path === "display.locale") onChange(instance.get("display.locale"));
+			instance.onEffectiveChange([cfgDisplayLocale], setting => {
+				if (setting === cfgDisplayLocale) onChange(cfgDisplayLocale.get(instance));
 			});
 		},
 	});

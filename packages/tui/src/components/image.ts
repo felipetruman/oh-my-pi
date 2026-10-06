@@ -1,12 +1,18 @@
+import { encodeSixelAsync } from "@oh-my-pi/pi-natives";
 import { getKittyGraphics } from "../kitty-graphics";
 import {
+	encodeSixelNow,
 	getCellDimensions,
 	getImageDimensions,
 	type ImageDimensions,
+	ImageProtocol,
 	imageFallback,
 	renderImage,
 	TERMINAL,
 } from "../terminal-capabilities";
+import { registerNativeBlob } from "../native/blobs";
+import { node } from "../native/describe";
+import type { DescribeContext, NativeNode } from "../native/node";
 import type { Component } from "../tui";
 
 export interface ImageTheme {
@@ -25,6 +31,29 @@ export interface ImageOptions {
 	 * repaint replaces the placement instead of stacking a duplicate.
 	 */
 	imageKey?: string;
+	/**
+	 * Schedules a repaint once this image's off-thread SIXEL encode lands.
+	 * Defaults to the budget's repaint; a host without a budget must pass one,
+	 * or the image's reserved rows stay blank until an unrelated repaint.
+	 */
+	requestRender?: () => void;
+}
+
+/** Renders in progress whose rows are bound for native scrollback. */
+let scrollbackRenderDepth = 0;
+
+/**
+ * Run `render` for rows bound for native scrollback. Those rows are never
+ * repainted, so an image whose off-thread SIXEL encode has not landed encodes
+ * synchronously instead of committing its reserved blank rows.
+ */
+export function renderForScrollback<T>(render: () => T): T {
+	scrollbackRenderDepth++;
+	try {
+		return render();
+	} finally {
+		scrollbackRenderDepth--;
+	}
 }
 
 const EMPTY_IDS: readonly number[] = [];
@@ -84,7 +113,7 @@ interface SurfaceSplit {
 	 * id so a partial pass reproduces the on-screen live/text split without a
 	 * full, correctly-ordered walk.
 	 */
-	suppressedIds: Set<number>;
+	readonly suppressedIds: Set<number>;
 }
 
 function newSurfaceSplit(): SurfaceSplit {
@@ -96,7 +125,7 @@ function resetSurfaceSplit(split: SurfaceSplit): void {
 	split.onTerminal = 0;
 	split.planned = 0;
 	split.lastTotal = 0;
-	split.suppressedIds = new Set();
+	if (split.suppressedIds.size > 0) split.suppressedIds.clear();
 }
 
 let nextImageBudgetSeed = Math.floor(Math.random() * 0xffffff);
@@ -108,10 +137,10 @@ function nextImageIdSeed(): number {
  * Bounds how many inline images render as live terminal graphics at once.
  *
  * Terminal graphics protocols — Kitty especially — keep every transmitted image
- * in a per-terminal store and re-draw placements as content scrolls; text-clear
- * escapes (`CSI 2 J` / `CSI 3 J`) do not remove them. Unbounded, a session that
- * shows many images piles up placements plus store memory and leaves ghosts in
- * scrollback.
+ * in a per-screen store and re-draw placements as content scrolls; placements
+ * that left the viewport survive text-clear escapes (`CSI 2 J`). Unbounded, a
+ * session that shows many images piles up placements plus store memory and
+ * leaves ghosts in scrollback.
  *
  * The budget keeps the most recent `cap` images live and demotes older ones to
  * their text fallback. Demotion needs a full redraw (so off-screen rows are
@@ -165,10 +194,16 @@ export class ImageBudget {
 	 * {@link forgetTransmitted}.
 	 */
 	#resetPurgeIds: number[] = [];
-	/** Image ids whose data is believed to be loaded in the terminal's store. */
-	#transmitted = new Set<number>();
-	/** Transmit sequences (full base64) to write once, before this frame's placements. */
-	#pendingTransmits = new Map<number, string>();
+	/**
+	 * Image ids whose data is believed to be loaded in each screen's store.
+	 * kitty and Ghostty keep the normal and alternate buffers' graphics apart
+	 * and wipe the alternate store on every `?1049h`, so data sent while one
+	 * buffer was active is unknown to the other: a placement there resolves
+	 * only after its own transmit.
+	 */
+	#transmitted: Record<Surface, Set<number>> = { screen: new Set(), alt: new Set() };
+	/** Transmit sequences (full base64) to write once per surface, before that frame's placements. */
+	#pendingTransmits: Record<Surface, Map<number, string>> = { screen: new Map(), alt: new Map() };
 	// True while the in-flight pass is a partial/throwaway pass (the
 	// non-multiplexer resize viewport fast path) that walks only the visible
 	// tail, bottom-up. Such a pass cannot derive display order from observe()
@@ -217,6 +252,11 @@ export class ImageBudget {
 		this.#requestRender = requestRender;
 	}
 
+	/** Ask for a repaint, e.g. once an image's off-thread encode settles. */
+	requestRender(): void {
+		this.#requestRender();
+	}
+
 	setCap(cap: number): void {
 		const next = normalizeCap(cap);
 		if (next === this.#cap) return;
@@ -258,6 +298,8 @@ export class ImageBudget {
 	beginAltScreenLifecycle(): void {
 		resetSurfaceSplit(this.#altSplit);
 		this.#liveIds.alt.clear();
+		// `?1049h` hands over an empty graphics store as well as a cleared grid.
+		this.#transmitted.alt.clear();
 	}
 
 	/**
@@ -275,8 +317,8 @@ export class ImageBudget {
 	 */
 	beginPass(stable = false, altScreen = false): void {
 		this.#passIds.length = 0;
-		this.#passSuppression.clear();
-		this.#passIndex.clear();
+		if (this.#passSuppression.size > 0) this.#passSuppression.clear();
+		if (this.#passIndex.size > 0) this.#passIndex.clear();
 		this.#stablePass = stable;
 		this.#surface = altScreen ? "alt" : "screen";
 		this.#split = altScreen ? this.#altSplit : this.#screenSplit;
@@ -287,7 +329,7 @@ export class ImageBudget {
 		// first. Note that leaving alt mode is not the same as unstacking a
 		// fullscreen overlay: the flush must exclude one that is still stacked
 		// from the pass itself, which is that caller's job, not this line's.
-		if (!altScreen) this.#liveIds.alt.clear();
+		if (!altScreen && this.#liveIds.alt.size > 0) this.#liveIds.alt.clear();
 		this.#applyingReset = !stable && this.#cap > 0 && this.#split.planned > this.#split.onTerminal;
 	}
 
@@ -340,7 +382,10 @@ export class ImageBudget {
 		// [0, onTerminal) is what this surface currently shows as text. Partial
 		// passes replay this per id (see #stablePass) instead of re-deriving it
 		// from a reversed, tail-only walk.
-		split.suppressedIds = new Set(this.#passIds.slice(0, split.onTerminal));
+		const suppressedIds = split.suppressedIds;
+		if (suppressedIds.size > 0) suppressedIds.clear();
+		const suppressedCount = Math.min(total, split.onTerminal);
+		for (let i = 0; i < suppressedCount; i++) suppressedIds.add(this.#passIds[i]);
 		return retry;
 	}
 
@@ -353,10 +398,16 @@ export class ImageBudget {
 	 * the next pass on the *other* surface knows what it may not destroy.
 	 */
 	limitResidentImages(): void {
-		this.#liveIds[this.#surface] = new Set(this.#passIds.filter(id => this.#passShowsLive(id)));
-		if (this.#cap <= 0 || this.#transmitted.size <= this.#cap) return;
-		for (const id of this.#transmitted) {
-			if (this.#transmitted.size <= this.#cap) break;
+		const liveIds = this.#liveIds[this.#surface];
+		if (liveIds.size > 0) liveIds.clear();
+		for (let i = 0; i < this.#passIds.length; i++) {
+			const id = this.#passIds[i];
+			if (this.#passShowsLive(id)) liveIds.add(id);
+		}
+		const transmitted = this.#transmitted[this.#surface];
+		if (this.#cap <= 0 || transmitted.size <= this.#cap) return;
+		for (const id of transmitted) {
+			if (transmitted.size <= this.#cap) break;
 			this.#retire(id);
 		}
 	}
@@ -384,15 +435,17 @@ export class ImageBudget {
 	}
 
 	/**
-	 * Drop `imageId` from the terminal's image store: queue its `d=I` (or cancel
-	 * a transmit that never went out) and forget its placement ledger and key.
+	 * Drop `imageId` from the painted surface's image store: queue its `d=I` (or
+	 * cancel a transmit that never went out) and, once no surface holds its data,
+	 * forget its placement ledger and key.
 	 *
 	 * The single gate on every destruction path. `d=I` removes an image's
-	 * placements everywhere, scrollback included, and a frame diff only rewrites
-	 * rows whose text changed — so a graphic some standing frame still shows
-	 * cannot be repaired once deleted, and must never be a candidate. Refuses
-	 * when the in-flight pass renders the image live, or when the frame on any
-	 * surface this pass is not repainting does. Returns whether it was retired.
+	 * placements everywhere on its screen, scrollback included, and a frame diff
+	 * only rewrites rows whose text changed — so a graphic some standing frame
+	 * still shows cannot be repaired once deleted, and must never be a
+	 * candidate. Refuses when the in-flight pass renders the image live, or when
+	 * the frame on any surface this pass is not repainting does. Returns whether
+	 * it was retired.
 	 */
 	#retire(imageId: number): boolean {
 		if (this.#passShowsLive(imageId)) return false;
@@ -401,11 +454,17 @@ export class ImageBudget {
 		}
 		// A transmit queued by a discarded discovery pass never reached the
 		// terminal, so cancel it instead of transmitting then purging.
-		if (!this.#pendingTransmits.delete(imageId)) this.#purgeIds.push(imageId);
-		this.#transmitted.delete(imageId);
-		this.#deletePlacementState(imageId);
+		if (!this.#pendingTransmits[this.#surface].delete(imageId)) this.#purgeIds.push(imageId);
+		this.#transmitted[this.#surface].delete(imageId);
+		if (!this.#isTransmitted(imageId)) this.#deletePlacementState(imageId);
 		this.#forgetKeyForId(imageId);
 		return true;
+	}
+
+	/** Whether any screen's store is believed to hold `imageId`'s data. */
+	#isTransmitted(imageId: number): boolean {
+		for (const surface of SURFACES) if (this.#transmitted[surface].has(imageId)) return true;
+		return false;
 	}
 
 	/**
@@ -427,25 +486,28 @@ export class ImageBudget {
 		return ids;
 	}
 
-	/** All image ids believed to be loaded in the terminal store; clears tracking. */
+	/** All image ids believed to be loaded in any screen's store; clears tracking. */
 	takeAllTransmittedIds(): readonly number[] {
-		if (this.#transmitted.size === 0) return EMPTY_IDS;
-		const ids = [...this.#transmitted];
-		this.#transmitted.clear();
+		const ids = new Set<number>();
+		for (const surface of SURFACES) {
+			for (const id of this.#transmitted[surface]) ids.add(id);
+			this.#transmitted[surface].clear();
+			this.#pendingTransmits[surface].clear();
+		}
+		if (ids.size === 0) return EMPTY_IDS;
 		this.#purgeIds = [];
 		this.#resetPurgeIds = [];
-		this.#pendingTransmits.clear();
 		this.#keyToId.clear();
 		this.#idToKey.clear();
 		this.#placementState.clear();
 		this.#watchedPlacements.clear();
 		for (const surface of SURFACES) this.#liveIds[surface].clear();
-		return ids;
+		return [...ids];
 	}
 
-	/** Whether `imageId`'s data still needs to be transmitted to the terminal. */
+	/** Whether `imageId`'s data still needs to be transmitted to the surface the in-flight pass paints. */
 	shouldTransmit(imageId: number): boolean {
-		return !this.#transmitted.has(imageId);
+		return !this.#transmitted[this.#surface].has(imageId);
 	}
 
 	/**
@@ -566,18 +628,20 @@ export class ImageBudget {
 	}
 
 	/**
-	 * Queue a one-time transmit for `imageId`. No-op if already transmitted, so a
-	 * repeated call (e.g. a width-change re-render) never re-sends the data.
+	 * Queue a one-time transmit for `imageId` on the surface the in-flight pass
+	 * paints. No-op if that surface already holds the data, so a repeated call
+	 * (e.g. a width-change re-render) never re-sends it.
 	 */
 	enqueueTransmit(imageId: number, sequence: string): void {
-		if (this.#transmitted.has(imageId)) return;
-		this.#transmitted.add(imageId);
-		this.#pendingTransmits.set(imageId, sequence);
+		const transmitted = this.#transmitted[this.#surface];
+		if (transmitted.has(imageId)) return;
+		transmitted.add(imageId);
+		this.#pendingTransmits[this.#surface].set(imageId, sequence);
 	}
 
-	/** Whether a frame has image data queued but not yet written to the terminal. */
+	/** Whether the in-flight pass's surface has image data queued but not yet written. */
 	hasPendingTransmits(): boolean {
-		return this.#pendingTransmits.size > 0;
+		return this.#pendingTransmits[this.#surface].size > 0;
 	}
 
 	/**
@@ -587,33 +651,38 @@ export class ImageBudget {
 	 * observe pass only then — a partial tree walk would under-count display order.
 	 */
 	get quiescent(): boolean {
-		if (this.#pendingTransmits.size > 0 || this.#purgeIds.length > 0) return false;
+		if (this.#purgeIds.length > 0) return false;
+		for (const surface of SURFACES) if (this.#pendingTransmits[surface].size > 0) return false;
 		for (const split of [this.#screenSplit, this.#altSplit]) {
 			if (split.lastTotal !== 0 || split.planned !== split.onTerminal) return false;
 		}
 		return true;
 	}
 
-	/** Transmit sequences to write before this frame's placements; clears the queue. */
+	/** Transmit sequences to write before this frame's placements on its surface; clears that queue. */
 	takeTransmits(): readonly string[] {
-		if (this.#pendingTransmits.size === 0) return EMPTY_TRANSMITS;
-		const sequences = [...this.#pendingTransmits.values()];
-		this.#pendingTransmits.clear();
+		const pending = this.#pendingTransmits[this.#surface];
+		if (pending.size === 0) return EMPTY_TRANSMITS;
+		const sequences = [...pending.values()];
+		pending.clear();
 		return sequences;
 	}
 
 	/**
-	 * Drop transmit tracking so every still-live image re-enqueues its data
-	 * (`a=t`) on the next render. Recovers when the terminal dropped the original
-	 * transmit — e.g. Ghostty discarding graphics sent during its post-startup
-	 * window — where a placement-only replay can never bind a Unicode placeholder.
-	 * Pair with a component invalidate + forced repaint so the data and placement
-	 * re-emit together; keeps no base64 in budget state (the transmit-once design).
+	 * Drop the normal screen's transmit tracking so every still-live image
+	 * re-enqueues its data (`a=t`) on the next render. Recovers when the terminal
+	 * dropped the original transmit — e.g. Ghostty discarding graphics sent during
+	 * its post-startup window — where a placement-only replay can never bind a
+	 * Unicode placeholder. Pair with a component invalidate + forced repaint so
+	 * the data and placement re-emit together; keeps no base64 in budget state
+	 * (the transmit-once design).
 	 */
 	forgetTransmitted(): void {
-		if (this.#transmitted.size === 0 && this.#pendingTransmits.size === 0) return;
-		for (const id of this.#transmitted) {
-			if (!this.#pendingTransmits.has(id)) this.#resetPurgeIds.push(id);
+		const transmitted = this.#transmitted.screen;
+		const pending = this.#pendingTransmits.screen;
+		if (transmitted.size === 0 && pending.size === 0) return;
+		for (const id of transmitted) {
+			if (!pending.has(id)) this.#resetPurgeIds.push(id);
 		}
 		// The ids go to #resetPurgeIds, drained only by the destructive repaint
 		// itself — never to #purgeIds, which any frame drains. That is how a
@@ -624,8 +693,8 @@ export class ImageBudget {
 		// placements from it, and erasing placeholder text does not remove the
 		// prototype either. Forgetting drops the id from tracking, so without an
 		// explicit `d=I` no later sweep can ever find that placement again.
-		this.#transmitted.clear();
-		this.#pendingTransmits.clear();
+		transmitted.clear();
+		pending.clear();
 	}
 
 	/**
@@ -641,7 +710,7 @@ export class ImageBudget {
 	 * deleting every placement it ever made including scrollback copies.
 	 */
 	#forgetKeyForId(id: number): void {
-		if (this.#transmitted.has(id)) return;
+		if (this.#isTransmitted(id)) return;
 		const key = this.#idToKey.get(id);
 		if (key === undefined) return;
 		this.#idToKey.delete(id);
@@ -695,6 +764,9 @@ export class Image implements Component {
 	// pads itself to this height so a budget demotion never shrinks the block
 	// (its rows may already be committed to native scrollback).
 	#renderedGraphicRows = 0;
+	#native?: NativeNode;
+	/** Newest SIXEL encode: its target size and, once settled, the sequence (`null` on failure). */
+	#sixel?: { widthPx: number; heightPx: number; sequence?: string | null };
 
 	constructor(
 		base64Data: string,
@@ -728,6 +800,64 @@ export class Image implements Component {
 		this.#cachedWidth = undefined;
 	}
 
+	/**
+	 * SIXEL sequence for a target size. A new size starts the encode off the JS
+	 * thread and answers `undefined` until it settles; the settled encode
+	 * invalidates the cached lines and requests a repaint. A render bound for
+	 * scrollback cannot wait, so it encodes synchronously.
+	 */
+	#sixelSequence(widthPx: number, heightPx: number): string | null | undefined {
+		const current = this.#sixel;
+		const sameSize = current !== undefined && current.widthPx === widthPx && current.heightPx === heightPx;
+		if (sameSize && current.sequence !== undefined) return current.sequence;
+		if (scrollbackRenderDepth > 0) {
+			// Replacing the entry makes a still-pending async encode settle as stale.
+			const sequence = encodeSixelNow(this.#base64Data, widthPx, heightPx);
+			this.#sixel = { widthPx, heightPx, sequence };
+			return sequence;
+		}
+		if (sameSize) return undefined;
+		const request: { widthPx: number; heightPx: number; sequence?: string | null } = { widthPx, heightPx };
+		this.#sixel = request;
+		const settle = (sequence: string | null): void => {
+			request.sequence = sequence;
+			if (this.#sixel !== request) return;
+			this.invalidate();
+			if (this.#options.requestRender) this.#options.requestRender();
+			else this.#budget?.requestRender();
+		};
+		encodeSixelAsync(new Uint8Array(Buffer.from(this.#base64Data, "base64")), widthPx, heightPx).then(settle, () =>
+			settle(null),
+		);
+		return undefined;
+	}
+
+	/**
+	 * A native `image` backed by a content-addressed blob; the terminal fits
+	 * it. Cell caps become `ch`/`lines` bounds. The inline-image budget and
+	 * graphics protocols do not apply.
+	 */
+	describe(_cx: DescribeContext): NativeNode {
+		if (this.#native) return this.#native;
+		const blob = registerNativeBlob(Buffer.from(this.#base64Data, "base64"), this.#mimeType);
+		const maxW = this.#options.maxWidthCells;
+		const maxH = this.#options.maxHeightCells;
+		this.#native = node("image", {
+			blob,
+			alt: imageFallback(this.#mimeType, this.#dimensions, this.#options.filename),
+			w: this.#dimensions.widthPx,
+			h: this.#dimensions.heightPx,
+			max:
+				(maxW ?? 0) > 0 || (maxH ?? 0) > 0
+					? {
+							w: maxW && maxW > 0 ? `${maxW}ch` : undefined,
+							h: maxH && maxH > 0 ? `${maxH}lines` : undefined,
+						}
+					: undefined,
+		});
+		return this.#native;
+	}
+
 	render(width: number): readonly string[] {
 		const imageProtocol = TERMINAL.imageProtocol;
 		const hasProtocol = imageProtocol != null;
@@ -738,6 +868,13 @@ export class Image implements Component {
 		// toward (and are demoted by) the budget; without a protocol every image is
 		// already text.
 		const suppressed = hasProtocol && this.#budget !== undefined ? this.#budget.observe(this.#imageId ?? 0) : false;
+		// Only Kitty images with a budget id transmit their data separately from
+		// the placement; a pending re-transmit (after a purge or history clear)
+		// must rebuild the lines. SIXEL and iTerm2 carry the image inside the line
+		// itself and never register a transmit, so gating their cache on it would
+		// re-encode the full image on every render pass.
+		const imageId = this.#imageId;
+		const transmitsSeparately = imageProtocol === ImageProtocol.Kitty && imageId != null;
 
 		if (
 			this.#cachedLines &&
@@ -747,7 +884,9 @@ export class Image implements Component {
 			this.#cachedCellWidthPx === cellDimensions.widthPx &&
 			this.#cachedCellHeightPx === cellDimensions.heightPx &&
 			this.#cachedKittyUnicodePlaceholders === kittyUnicodePlaceholders &&
-			(this.#imageId == null || this.#budget?.shouldTransmit(this.#imageId) !== true)
+			(!transmitsSeparately || this.#budget?.shouldTransmit(imageId) !== true) &&
+			// Cached rows reserved for a pending SIXEL encode must not reach scrollback.
+			!(scrollbackRenderDepth > 0 && this.#sixel !== undefined && this.#sixel.sequence === undefined)
 		) {
 			return this.#cachedLines;
 		}
@@ -760,12 +899,13 @@ export class Image implements Component {
 		if (hasProtocol && !suppressed) {
 			// Transmit the data once (keyed by id); thereafter renderImage returns
 			// just the placement, so repaints never re-send the base64.
-			const needsTransmit = this.#imageId != null && (this.#budget?.shouldTransmit(this.#imageId) ?? false);
+			const needsTransmit = transmitsSeparately && (this.#budget?.shouldTransmit(imageId) ?? false);
 			const result = renderImage(this.#base64Data, this.#dimensions, {
 				maxWidthCells: maxWidth,
 				maxHeightCells: this.#options.maxHeightCells,
 				imageId: this.#imageId,
 				includeTransmit: needsTransmit,
+				sixel: (widthPx, heightPx) => this.#sixelSequence(widthPx, heightPx),
 			});
 
 			if (result?.transmit && this.#imageId != null && this.#budget !== undefined) {

@@ -3,12 +3,14 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
 import {
-	getEnumValues,
-	getPathsForTab,
-	getUi,
 	SETTING_TABS,
 	TAB_METADATA,
-} from "@oh-my-pi/pi-coding-agent/config/settings-schema";
+	getSettingsForTab as getTabDefinitions,
+} from "@oh-my-pi/pi-tui/overlays/settings-defs";
+import { createSettingsHost } from "@oh-my-pi/pi-coding-agent/config/settings-ui";
+import { orderedSettings } from "@oh-my-pi/pi-coding-agent/config/all-settings";
+import { lookup } from "@oh-my-pi/pi-coding-agent/config/registry";
+import { cfgDisplayLocale } from "@oh-my-pi/pi-coding-agent/modes/settings";
 import {
 	DEFAULT_LOCALE,
 	EN_US,
@@ -29,7 +31,20 @@ import {
 	localizedSettingText,
 	localizedTabLabel,
 } from "@oh-my-pi/pi-coding-agent/i18n/settings-metadata";
-import { getSettingsForTab } from "@oh-my-pi/pi-coding-agent/modes/components/settings-defs";
+function getSettingsForTab(tab: (typeof SETTING_TABS)[number]) {
+	return getTabDefinitions(createSettingsHost().entries, tab);
+}
+function getPathsForTab(tab: (typeof SETTING_TABS)[number]) {
+	return orderedSettings()
+		.filter(s => s.ui?.tab === tab)
+		.map(s => s.id);
+}
+function getUi(path: string) {
+	return lookup(path)?.ui;
+}
+function getEnumValues(path: string) {
+	return lookup(path)?.enumValues;
+}
 import { getProjectAgentDir, TempDir } from "@oh-my-pi/pi-utils";
 import { YAML } from "bun";
 import { beginSettingsTest, restoreSettingsTestState, type SettingsTestState } from "./helpers/settings-test-state";
@@ -260,9 +275,9 @@ describe("display.locale persistence", () => {
 
 	it("defaults to en-US and round-trips the machine id through the config file", async () => {
 		const settings = await Settings.init({ cwd: projectDir, agentDir });
-		expect(settings.get("display.locale")).toBe("en-US");
+		expect(cfgDisplayLocale.get(settings)).toBe("en-US");
 
-		settings.set("display.locale", "pt-BR");
+		cfgDisplayLocale.set(settings, "pt-BR");
 		await settings.flush();
 
 		const saved = YAML.parse(await Bun.file(path.join(agentDir, "config.yml")).text()) as {
@@ -273,6 +288,6 @@ describe("display.locale persistence", () => {
 
 		resetSettingsForTest();
 		const reloaded = await Settings.init({ cwd: projectDir, agentDir });
-		expect(reloaded.get("display.locale")).toBe("pt-BR");
+		expect(cfgDisplayLocale.get(reloaded)).toBe("pt-BR");
 	});
 });

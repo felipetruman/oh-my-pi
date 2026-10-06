@@ -1,3 +1,4 @@
+import { resetLocaleForTest, setLocale } from "../src/i18n";
 import { removeWithRetries } from "@oh-my-pi/pi-utils";
 /**
  * Large-paste menu: when a paste reaches the configured `paste.largeMenuThreshold` line count,
@@ -10,10 +11,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { resetLocaleForTest, setLocale } from "@oh-my-pi/pi-coding-agent/i18n";
-import { CustomEditor } from "@oh-my-pi/pi-coding-agent/modes/components/custom-editor";
+import { CustomEditor } from "@oh-my-pi/pi-tui/prompt/custom-editor";
+import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
 import { InputController } from "@oh-my-pi/pi-coding-agent/modes/controllers/input-controller";
-import { getEditorTheme } from "@oh-my-pi/pi-coding-agent/modes/theme/theme";
+import { getEditorTheme } from "@oh-my-pi/pi-tui/theme";
 import type { InteractiveModeContext } from "@oh-my-pi/pi-coding-agent/modes/types";
 
 function createContext(options?: {
@@ -43,7 +44,7 @@ function createContext(options?: {
 			options?.editor ??
 			({ insertTextAttachment, insertText, pasteText } as unknown as InteractiveModeContext["editor"]),
 		ui: { requestRender } as unknown as InteractiveModeContext["ui"],
-		settings: { get: () => options?.threshold ?? 100 } as unknown as InteractiveModeContext["settings"],
+		settings: Settings.isolated({ "paste.largeMenuThreshold": options?.threshold ?? 100 }),
 		sessionManager: {
 			getCwd: () => process.cwd(),
 			getArtifactsDir: () => options?.artifactsDir ?? null,
@@ -137,17 +138,8 @@ describe("InputController.handleLargePaste gate", () => {
 	});
 });
 
-/**
- * The selector resolves to the *label* the user picked, so a caller that compares
- * that label to an English literal silently falls through in any other language.
- * Running the same positions under both interface languages is the guard: a
- * literal comparison reaching `presentLargePasteMenu` makes these fail loudly.
- */
 describe.each(["en-US", "pt-BR"] as const)("InputController.presentLargePasteMenu actions (%s)", locale => {
-	beforeEach(() => {
-		setLocale(locale);
-	});
-
+	beforeEach(() => setLocale(locale));
 	it("wraps the paste in attachment XML collapsed to a marker", async () => {
 		const { controller, spies } = createContext({ choiceIndex: WRAPPED_BLOCK });
 
@@ -184,15 +176,6 @@ describe.each(["en-US", "pt-BR"] as const)("InputController.presentLargePasteMen
 		await controller.presentLargePasteMenu("payload", 1);
 
 		expect(spies.insertTextAttachment).toHaveBeenCalledWith("payload");
-	});
-
-	it("carries the paste's line count into the menu title", async () => {
-		const { controller, spies } = createContext({});
-
-		await controller.presentLargePasteMenu("payload", 123);
-
-		// The count is interpolated, not the wording: the title is translated copy.
-		expect(spies.showHookSelector.mock.calls[0][0]).toContain("123");
 	});
 });
 

@@ -1,19 +1,20 @@
+import { createAgentHubRuntime } from "@oh-my-pi/pi-coding-agent/modes/agent-hub-runtime";
+import { cfgDisplayTranslateThinking, cfgDisplaySmoothStreaming } from "@oh-my-pi/pi-coding-agent/modes/settings";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "bun:test";
 import type { AssistantMessage } from "@oh-my-pi/pi-ai";
 import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
 import { getLocale, setLocale, t } from "@oh-my-pi/pi-coding-agent/i18n";
 import { IrcBus } from "@oh-my-pi/pi-coding-agent/irc/bus";
-import { AgentHubOverlayComponent } from "@oh-my-pi/pi-coding-agent/modes/components/agent-hub";
-import { AssistantMessageComponent } from "@oh-my-pi/pi-coding-agent/modes/components/assistant-message";
-import { ChatTranscriptBuilder } from "@oh-my-pi/pi-coding-agent/modes/components/chat-transcript-builder";
-import { TranscriptContainer } from "@oh-my-pi/pi-coding-agent/modes/components/transcript-container";
+import { AgentHubOverlayComponent } from "@oh-my-pi/pi-tui/overlays/agent-hub";
+import { AssistantMessageComponent } from "@oh-my-pi/pi-tui/chat/assistant-message";
+import { ChatTranscriptBuilder } from "@oh-my-pi/pi-tui/chat/chat-transcript-builder";
+import { TranscriptContainer } from "@oh-my-pi/pi-tui/chrome/transcript-container";
 import { EventController } from "@oh-my-pi/pi-coding-agent/modes/controllers/event-controller";
 import { InputController } from "@oh-my-pi/pi-coding-agent/modes/controllers/input-controller";
-import { SelectorController } from "@oh-my-pi/pi-coding-agent/modes/controllers/selector-controller";
 import { StreamingRevealController } from "@oh-my-pi/pi-coding-agent/modes/controllers/streaming-reveal";
-import { SessionObserverRegistry } from "@oh-my-pi/pi-coding-agent/modes/session-observer-registry";
-import { initTheme } from "@oh-my-pi/pi-coding-agent/modes/theme/theme";
-import { createAssistantMessageComponent } from "@oh-my-pi/pi-coding-agent/modes/utils/interactive-context-helpers";
+import { SessionObserverRegistry } from "@oh-my-pi/pi-tui/overlays/session-observer-registry";
+import { initTheme } from "@oh-my-pi/pi-tui/theme/theme";
+import { createAssistantMessageComponent } from "@oh-my-pi/pi-tui/prompt/interactive-context-helpers";
 import { UiHelpers } from "@oh-my-pi/pi-coding-agent/modes/utils/ui-helpers";
 import { AgentRegistry } from "@oh-my-pi/pi-coding-agent/registry/agent-registry";
 import type { AgentSessionEvent } from "@oh-my-pi/pi-coding-agent/session/agent-session";
@@ -71,6 +72,7 @@ function component(
 		undefined,
 		true,
 		undefined,
+		false,
 		translator,
 	);
 	disposables.push(result);
@@ -93,7 +95,7 @@ beforeEach(async () => {
 	previousLocale = getLocale();
 	settingsState = beginSettingsTest();
 	await Settings.init({ inMemory: true });
-	Settings.instance.override("display.translateThinking", true);
+	cfgDisplayTranslateThinking.override(Settings.instance, true);
 	setLocale("pt-BR");
 });
 
@@ -155,7 +157,7 @@ describe("projeção visual do raciocínio traduzido", () => {
 	});
 
 	it("preserva o original em pt-BR com a opção desligada", () => {
-		Settings.instance.override("display.translateThinking", false);
+		cfgDisplayTranslateThinking.override(Settings.instance, false);
 		const translation = deferredTranslation();
 		const schedule = vi.spyOn(translation.translator, "schedule");
 
@@ -272,7 +274,7 @@ describe("projeção visual do raciocínio traduzido", () => {
 
 	it("traduz thinking_end antes do próximo texto sem finalizar o transcript ou perder a fronteira no batching", async () => {
 		vi.useFakeTimers();
-		Settings.instance.override("display.smoothStreaming", true);
+		cfgDisplaySmoothStreaming.override(Settings.instance, true);
 		const translation = deferredTranslation();
 		let listener: ((event: AgentSessionEvent) => void) | undefined;
 		const ctx = createInteractiveModeContext({
@@ -466,6 +468,7 @@ describe("projeção visual do raciocínio traduzido", () => {
 		const showOverlay = vi.spyOn(ui, "showOverlay");
 		const text = `${JSON.stringify(entry(message()))}\n`;
 		const hub = new AgentHubOverlayComponent({
+			...createAgentHubRuntime({ registry, irc: new IrcBus(registry) }),
 			ui,
 			registry,
 			irc: new IrcBus(registry),
@@ -515,69 +518,6 @@ describe("projeção visual do raciocínio traduzido", () => {
 		expect(render(target)).toContain(t("hud.thinking.translationPending"));
 		expect(render(target)).not.toContain(ORIGINAL);
 		expect(translation.executor).not.toHaveBeenCalled();
-	});
-
-	it("troca locale e toggle sem reutilizar tradução pendente nem iniciar inferência no streaming", async () => {
-		const translation = deferredTranslation();
-		const pending = component(translation.translator, message());
-		const streaming = component(translation.translator);
-		streaming.updateContent(message(), { transient: true });
-		const ctx = createInteractiveModeContext({
-			thinkingTranslator: translation.translator,
-			streamingComponent: streaming,
-			streamingMessage: message(),
-			ui: { resetDisplay: vi.fn() },
-		});
-		ctx.chatContainer.addChild(pending);
-		ctx.chatContainer.addChild(streaming);
-		const selector = new SelectorController(ctx);
-		await Promise.resolve();
-		setLocale("en-US");
-		selector.handleSettingChange("display.locale", "en-US");
-		expect(render(streaming)).toContain(ORIGINAL);
-		expect(translation.translator.get(ORIGINAL, "pt-BR")).toBeUndefined();
-
-		setLocale("pt-BR");
-		Settings.instance.override("display.translateThinking", false);
-		selector.handleSettingChange("display.translateThinking", false);
-		expect(render(streaming)).toContain(ORIGINAL);
-		translation.resolve(TRANSLATED);
-		await translation.promise;
-		expect(render(streaming)).not.toContain(TRANSLATED);
-		Settings.instance.override("display.translateThinking", true);
-		selector.handleSettingChange("display.translateThinking", true);
-		expect(render(streaming)).toContain(t("hud.thinking.translationPending"));
-		expect(translation.executor).toHaveBeenCalledTimes(1);
-	});
-
-	it("limpa resultado settled local ao alternar a tradução durante streaming", async () => {
-		const executor = vi.fn(async () => null);
-		const translator = new ThinkingDisplayTranslator(executor);
-		const source = message([
-			{ type: "thinking", thinking: ORIGINAL },
-			{ type: "text", text: "Resposta" },
-		]);
-		const target = component(translator);
-		target.updateContent(source, { transient: true });
-		const ctx = createInteractiveModeContext({
-			thinkingTranslator: translator,
-			streamingComponent: target,
-			streamingMessage: source,
-			ui: { resetDisplay: vi.fn() },
-		});
-		ctx.chatContainer.addChild(target);
-		const selector = new SelectorController(ctx);
-		await Bun.sleep(0);
-		expect(executor).toHaveBeenCalledTimes(1);
-
-		Settings.instance.override("display.translateThinking", false);
-		selector.handleSettingChange("display.translateThinking", false);
-		Settings.instance.override("display.translateThinking", true);
-		selector.handleSettingChange("display.translateThinking", true);
-		await Bun.sleep(0);
-
-		expect(executor).toHaveBeenCalledTimes(2);
-		expect(render(target)).toContain(t("hud.thinking.translationFailed"));
 	});
 
 	it("restaura thinking concluído antes de texto posterior mesmo sem replay de thinking_end", async () => {

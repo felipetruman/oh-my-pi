@@ -1,3 +1,6 @@
+import { cfgDisplayTranslateThinking } from "@oh-my-pi/pi-coding-agent/modes/settings";
+import { cfgRetryModelFallback, cfgRetryFallbackChains } from "@oh-my-pi/pi-coding-agent/session/settings";
+import { cfgModelRoles } from "@oh-my-pi/pi-coding-agent/config/model-settings";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { Agent } from "@oh-my-pi/pi-agent-core";
 import * as ai from "@oh-my-pi/pi-ai";
@@ -27,14 +30,14 @@ function bundledModel(id: "claude-sonnet-4-5" | "claude-haiku-4-5"): ai.Model {
 
 beforeEach(() => {
 	storage = createInMemoryAuthStorage();
-	storage.setRuntimeApiKey("anthropic", "test-key");
+	storage.keys.setRuntime("anthropic", "test-key");
 	settings = Settings.isolated({
 		"compaction.enabled": false,
 		"display.translateThinking": true,
 		"retry.modelFallback": false,
 	});
 	model = bundledModel("claude-sonnet-4-5");
-	settings.overrideModelRoles({ smol: `${model.provider}/${model.id}` });
+	cfgModelRoles.override(settings, { smol: `${model.provider}/${model.id}` });
 	registry = new ModelRegistry(storage, undefined, {
 		ignoreLocalModelConfig: true,
 		cacheDbPath: ":memory:",
@@ -75,7 +78,7 @@ function createSession(messages: ai.AssistantMessage[] = []): AgentSession {
 describe("executor de tradução do thinking", () => {
 	it("prefere o role smol configurado mesmo quando tiny vem primeiro no catálogo", async () => {
 		const tiny = bundledModel("claude-haiku-4-5");
-		settings.overrideModelRoles({ smol: `${model.provider}/${model.id}`, tiny: `${tiny.provider}/${tiny.id}` });
+		cfgModelRoles.override(settings, { smol: `${model.provider}/${model.id}`, tiny: `${tiny.provider}/${tiny.id}` });
 		vi.spyOn(registry, "getAvailable").mockReturnValue([tiny, model]);
 		vi.spyOn(ai, "completeSimple").mockImplementation(async selected =>
 			createAssistantMessage(selected.id === model.id ? "Tradução pelo smol" : "Modelo incorreto"),
@@ -94,7 +97,7 @@ describe("executor de tradução do thinking", () => {
 	});
 
 	it("libera a afinidade de credencial da sessão temporária", async () => {
-		const release = vi.spyOn(storage, "releaseSessionCredentialForReselection");
+		const release = vi.spyOn(storage.sessions, "release");
 		vi.spyOn(ai, "completeSimple").mockResolvedValue(createAssistantMessage("Tradução"));
 
 		await translateThinkingText("Original", "pt-BR", options);
@@ -173,8 +176,8 @@ describe("executor de tradução do thinking", () => {
 
 	it("segue a cadeia oficial configurada quando a primeira resposta não é utilizável", async () => {
 		const fallback = bundledModel("claude-haiku-4-5");
-		settings.override("retry.modelFallback", true);
-		settings.override("retry.fallbackChains", { smol: [`${fallback.provider}/${fallback.id}`] });
+		cfgRetryModelFallback.override(settings, true);
+		cfgRetryFallbackChains.override(settings, { smol: [`${fallback.provider}/${fallback.id}`] });
 		vi.spyOn(registry, "getAvailable").mockReturnValue([model, fallback]);
 		vi.spyOn(ai, "completeSimple").mockImplementation(async selected => {
 			const response = createAssistantMessage(selected.id === fallback.id ? "Tradução recuperada" : "Parcial");
@@ -187,7 +190,7 @@ describe("executor de tradução do thinking", () => {
 
 	it("não segue a cadeia configurada quando modelFallback está desligado", async () => {
 		const fallback = bundledModel("claude-haiku-4-5");
-		settings.override("retry.fallbackChains", { smol: [`${fallback.provider}/${fallback.id}`] });
+		cfgRetryFallbackChains.override(settings, { smol: [`${fallback.provider}/${fallback.id}`] });
 		vi.spyOn(registry, "getAvailable").mockReturnValue([model, fallback]);
 		const complete = vi.spyOn(ai, "completeSimple").mockImplementation(async selected => {
 			const response = createAssistantMessage(selected.id === fallback.id ? "Tradução recuperada" : "Parcial");
@@ -239,10 +242,10 @@ describe("AgentSession.translateThinkingForDisplay", () => {
 		session = createSession();
 		const complete = vi.spyOn(ai, "completeSimple");
 		const original = "  Original\n";
-		settings.override("display.translateThinking", false);
+		cfgDisplayTranslateThinking.override(settings, false);
 
 		expect(await session.translateThinkingForDisplay(original, "pt-BR")).toBe(original);
-		settings.override("display.translateThinking", true);
+		cfgDisplayTranslateThinking.override(settings, true);
 		expect(await session.translateThinkingForDisplay(original, "en-US")).toBe(original);
 		expect(complete).not.toHaveBeenCalled();
 	});

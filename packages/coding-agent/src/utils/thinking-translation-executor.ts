@@ -32,11 +32,10 @@ export async function translateThinkingText(
 		if (signal?.aborted) return null;
 		try {
 			if (credentialSourceSessionId !== sessionId) {
-				const credential = registry.authStorage
-					.listOAuthAccounts(model.provider, credentialSourceSessionId)
+				const credential = registry.authStorage.oauth
+					.accounts(model.provider, credentialSourceSessionId)
 					.find(account => account.active);
-				if (credential)
-					registry.authStorage.pinSessionOAuthAccount(model.provider, sessionId, credential.credentialId);
+				if (credential) registry.authStorage.sessions.pin(model.provider, sessionId, credential.credentialId);
 			}
 			if (!(await registry.getApiKey(model, sessionId, { signal }))) continue;
 			if (signal?.aborted) return null;
@@ -74,7 +73,7 @@ export async function translateThinkingText(
 			if (signal?.aborted) return null;
 			logger.debug("thinking-translation: tentativa indisponível", { provider: model.provider, model: model.id });
 		} finally {
-			registry.authStorage.releaseSessionCredentialForReselection(model.provider, sessionId);
+			registry.authStorage.sessions.release(model.provider, sessionId);
 		}
 	}
 	return null;
