@@ -107,6 +107,13 @@ export const launchHelp = {
 			description: "With --mode rpc or rpc-ui: run extensions headless (rpc-ui tool UI remains enabled)",
 		}),
 		"print-thoughts": Flags.boolean({ description: "Include thinking blocks in print mode text output" }),
+		"fail-on-fallback": Flags.boolean({
+			description:
+				"In print mode: exit with code 1 if the request was served by a fallback model rather than the primary",
+		}),
+		"no-model-fallback": Flags.boolean({
+			description: "Disable retry fallback chains and fail immediately on the requested model",
+		}),
 		"max-time": Flags.string({ description: "Stop the session after this duration (e.g., 600, 10m, 1h)" }),
 		"auto-approve": Flags.boolean({
 			aliases: ["yolo"],

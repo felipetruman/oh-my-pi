@@ -173,6 +173,7 @@ import {
 	cfgHideThinkingBlock,
 	cfgOmitThinking,
 	cfgPrewalkEnabled,
+	cfgRetryModelFallback,
 } from "./session/settings";
 import { cfgDisabledProviders, cfgEnabledModels } from "./config/model-settings";
 import { cfgTaskAgentIdleTtlMs } from "./task/settings";
@@ -1924,6 +1925,10 @@ export async function runRootCommand(
 		if (parsedArgs.externalThinking) {
 			cfgExternalThinking.override(settingsInstance, true);
 		}
+		// Apply --no-model-fallback CLI flag (ephemeral, not persisted)
+		if (parsedArgs.noModelFallback) {
+			cfgRetryModelFallback.override(settingsInstance, false);
+		}
 
 		await logger.time(
 			"initTheme:final",
@@ -2606,6 +2611,7 @@ export async function runRootCommand(
 					initialImages,
 					printThoughts: initialArgs.printThoughts,
 					planYolo: parsedArgs.planYolo,
+					failOnFallback: parsedArgs.failOnFallback,
 					mcpManager,
 				});
 				if ($env.PI_TIMING) {

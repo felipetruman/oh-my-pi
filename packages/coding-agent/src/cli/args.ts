@@ -85,6 +85,8 @@ export interface Args {
 	noTitle?: boolean;
 	/** RPC modes only: run extensions without a UI; `rpc-ui` tool UI remains enabled. */
 	noUi?: boolean;
+	failOnFallback?: boolean;
+	noModelFallback?: boolean;
 	autoApprove?: boolean;
 	approvalMode?: "always-ask" | "write" | "yolo";
 	messages: string[];
@@ -348,6 +350,10 @@ export function parseArgs(inputArgs: string[], extensionFlags?: Map<string, { ty
 			result.noTitle = true;
 		} else if (arg === "--no-ui") {
 			result.noUi = true;
+		} else if (arg === "--fail-on-fallback") {
+			result.failOnFallback = true;
+		} else if (arg === "--no-model-fallback") {
+			result.noModelFallback = true;
 		} else if (arg === "--auto-approve" || arg === "--yolo") {
 			result.autoApprove = true;
 		} else if (arg.startsWith("@")) {

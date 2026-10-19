@@ -41,6 +41,8 @@ export interface PrintModeOptions {
 	planYolo?: boolean;
 	/** Manager returned by session creation; only print mode waits for its servers. */
 	mcpManager?: MCPManager;
+	/** If true, exit with code 1 if the request completed on a fallback model rather than the primary. */
+	failOnFallback?: boolean;
 }
 
 /** Matches the longest built-in provider request deadline while bounding tool-loop stalls. */
@@ -228,8 +230,25 @@ async function runPrintModeCore(
 		writeStderrLine(`Warning: ${formatPersistenceNotice(notice)}`);
 	});
 
+	let requestedModel: string | undefined;
+	let servedFallbackModel: string | undefined;
+	let fallbackServed = false;
 	// Always subscribe to enable session persistence via _handleAgentEvent
 	session.subscribe(event => {
+		if (event.type === "retry_fallback_applied") {
+			requestedModel ??= event.from;
+			const reasonSuffix = event.reason ? ` (${singleLine(event.reason)})` : "";
+			writeStderrLine(
+				`Warning: Fallback attempt: ${singleLine(event.from)} -> ${singleLine(event.to)}${reasonSuffix}`,
+			);
+		} else if (event.type === "retry_fallback_succeeded") {
+			fallbackServed = true;
+			servedFallbackModel = event.model;
+			writeStderrLine(
+				`[ATTRIBUTION] Requested: ${singleLine(requestedModel || "primary")} | Served: ${singleLine(event.model)} (role: ${singleLine(event.role)})`,
+			);
+		}
+
 		// In JSON mode, output all events
 		if (mode === "json") {
 			writeStdoutLine(`${JSON.stringify(printableEvent(event))}\n`);
@@ -354,6 +373,8 @@ async function runPrintModeCore(
 	// agent_end and late JSON advisor events) has drained; process.exit would
 	// otherwise discard the buffered tail and truncate the last record.
 	await stdoutTail;
+	const finalServingModel = session.servingModel;
+	const isServingFallback = Boolean(finalServingModel?.isFallback);
 	// Dispose before returning the status instead of hard-exiting ahead of it:
 	// the awaited `dispose()` runs the browser reaper (releaseTabsForOwner), so
 	// an OMP-owned Chromium cannot survive the exit (issue #5643).
@@ -383,6 +404,12 @@ async function runPrintModeCore(
 		}
 	}
 
+	const fallbackRejected = Boolean(options.failOnFallback && (fallbackServed || isServingFallback));
+	if (fallbackRejected) {
+		writeStderrLine(
+			`Error: Operation completed via fallback model (${singleLine(servedFallbackModel || finalServingModel?.selector || "unknown")}), but rejected by --fail-on-fallback.`,
+		);
+	}
 	await stderrTail;
-	return terminalFailure || durabilityFailure || strictMCPFailure ? 1 : 0;
+	return terminalFailure || durabilityFailure || strictMCPFailure || fallbackRejected ? 1 : 0;
 }
