@@ -8,13 +8,43 @@
  */
 import * as readline from "node:readline";
 import { getOAuthProviders } from "@oh-my-pi/pi-ai";
+import * as AIError from "@oh-my-pi/pi-ai/error";
 import { APP_NAME, getAgentDbPath, getProjectDir } from "@oh-my-pi/pi-utils";
 import chalk from "@oh-my-pi/pi-utils/chalk";
 import { ModelRegistry } from "../config/model-registry";
 import { Settings } from "../config/settings";
 import { discoverAuthStorage, loadCliExtensionProviders } from "../sdk";
+import type { AuthStorage } from "../session/auth-storage";
 import { resolveAuthBrokerConfig } from "../session/auth-broker-config";
 import { formatLoginIdentity, pickOAuthProvider, runTerminalOAuthLogin } from "./oauth-terminal";
+
+/** Whether `error` is an unmatched `auth.accountPolicies` selector failure. */
+function isPolicyMismatchError(error: unknown): boolean {
+	return error instanceof AIError.ConfigurationError && error.message.includes("matches no stored OAuth account");
+}
+
+/**
+ * Storage discovery for the login command.
+ *
+ * Login exists to change the credential set that `auth.accountPolicies`
+ * validates against, so a stale selector (revoked grant, removed account)
+ * must not block re-authentication: on a policy-mismatch failure the
+ * discovery retries without policies. Login-time upsert validation still
+ * guards what gets persisted.
+ */
+export async function discoverLoginAuthStorage(settings: Settings): Promise<AuthStorage> {
+	try {
+		return await discoverAuthStorage(undefined, { settings });
+	} catch (error) {
+		if (!isPolicyMismatchError(error)) throw error;
+		process.stdout.write(
+			chalk.yellow(
+				"Configured account policies match no active credential; continuing login without policy validation so you can re-authenticate.\n",
+			),
+		);
+		return discoverAuthStorage(undefined, { settings, accountPolicies: [] });
+	}
+}
 
 /**
  * Log in to `provider`, or to one picked interactively when omitted.
@@ -25,7 +55,7 @@ import { formatLoginIdentity, pickOAuthProvider, runTerminalOAuthLogin } from ".
 export async function runLoginCommand(provider: string | undefined): Promise<void> {
 	const cwd = getProjectDir();
 	const settings = await Settings.init({ cwd });
-	const authStorage = await discoverAuthStorage(undefined, { settings });
+	const authStorage = await discoverLoginAuthStorage(settings);
 	const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 	try {
 		const modelRegistry = new ModelRegistry(authStorage);

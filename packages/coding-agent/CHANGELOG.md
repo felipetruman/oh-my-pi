@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- `omp login` no longer fails before starting when `auth.accountPolicies` selectors match no active credential (revoked grant, removed account): discovery retries without policy validation so re-authentication can proceed.
+
 ### Added
 
 - Interface language setting (`display.locale`, default `en-US`) under Appearance → Display in `/settings`. English stays the canonical source and the fallback for anything a translation has not covered; model prompts, tool names, schemas, and protocol fields are unaffected.
