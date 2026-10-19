@@ -4,6 +4,7 @@ import type {
 	AuthAccountPolicy,
 	AuthAccountSelector,
 	AuthCredential,
+	DisabledCredentialSummary,
 	OAuthAccountIdentity,
 	OAuthCredential,
 } from "./types";
@@ -141,6 +142,29 @@ export class AccountPolicies {
 			}
 			claimedCredentials.set(credentialIndex, index);
 		}
+	}
+
+	/**
+	 * First configured policy for `provider` matching a disabled credential
+	 * tombstone, in configuration order.
+	 *
+	 * Read-only diagnostics surface for error enrichment: when `validateFor`
+	 * rejects a pool because no *active* credential matches, the caller uses
+	 * this to tell a revoked/disabled account apart from a selector that
+	 * never matched anything. Never refreshes, ranks, or mutates credentials.
+	 */
+	findDisabledMatch(
+		provider: string,
+		disabled: readonly DisabledCredentialSummary[],
+	): { index: number; policy: AuthAccountPolicy; summary: DisabledCredentialSummary } | undefined {
+		const policies = this.#accountPolicies
+			.map((policy, index) => ({ policy, index }))
+			.filter(({ policy }) => policy.provider === provider);
+		for (const { policy, index } of policies) {
+			const summary = disabled.find(entry => matchesAuthAccountSelector(policy.account, entry));
+			if (summary) return { index, policy, summary };
+		}
+		return undefined;
 	}
 
 	/**

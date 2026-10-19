@@ -1,4 +1,5 @@
-import { logger } from "@oh-my-pi/pi-utils";
+import { getAppName, logger } from "@oh-my-pi/pi-utils";
+import * as AIError from "../error";
 import { resolveCredentialIdentityKey, serializeCredential } from "./sqlite-credential-store";
 import type { BlockStoreHealth } from "./blocks";
 import type { AccountPolicies } from "./policy";
@@ -46,6 +47,15 @@ export function credentialDisabledEvent(
 		if (credential.orgName) event.orgName = credential.orgName;
 	}
 	return event;
+}
+
+/** Human-readable identity slice of a disabled credential tombstone (never token material). */
+function describeDisabledIdentity(summary: DisabledCredentialSummary): string {
+	const parts: string[] = [];
+	if (summary.accountId) parts.push(`accountId ${summary.accountId}`);
+	if (summary.email) parts.push(`email ${summary.email}`);
+	if (summary.orgId) parts.push(`orgId ${summary.orgId}`);
+	return parts.length > 0 ? parts.join(", ") : `id ${summary.id}`;
 }
 
 /** Credential equality used for snapshot change detection. */
@@ -298,10 +308,14 @@ export class CredentialPool implements CredentialsApi {
 		const dedupedGrouped = new Map<string, StoredCredential[]>();
 		for (const [provider, entries] of grouped.entries()) {
 			const deduped = await this.pruneDuplicates(provider, entries);
-			this.#options.policies.validateFor(
-				provider,
-				deduped.map(entry => entry.credential),
-			);
+			try {
+				this.#options.policies.validateFor(
+					provider,
+					deduped.map(entry => entry.credential),
+				);
+			} catch (err) {
+				throw await this.#describePolicyMismatch(provider, err);
+			}
 			if (deduped.length > 0) {
 				dedupedGrouped.set(provider, deduped);
 			}
@@ -315,6 +329,31 @@ export class CredentialPool implements CredentialsApi {
 		for (const provider of removedProviders) {
 			this.replace(provider, []);
 		}
+	}
+
+	/**
+	 * Enrich a policy-validation failure with the disabled account behind it.
+	 *
+	 * `validateFor` only sees active credentials, so a policy whose account
+	 * was auto-disabled (e.g. a dead OAuth refresh grant) surfaces as "matches
+	 * no stored OAuth account". When a configured selector matches a disabled
+	 * tombstone, rethrow naming that account, its disable cause, and the
+	 * re-authentication step; otherwise return the original error untouched.
+	 */
+	async #describePolicyMismatch(provider: string, err: unknown): Promise<unknown> {
+		if (!(err instanceof AIError.ConfigurationError)) return err;
+		let disabled: DisabledCredentialSummary[] = [];
+		try {
+			disabled = (await this.#store.listDisabledCredentials?.(provider)) ?? [];
+		} catch {
+			return err;
+		}
+		const match = this.#options.policies.findDisabledMatch(provider, disabled);
+		if (!match) return err;
+		return new AIError.ConfigurationError(
+			`${err.message}; the matching stored account (${describeDisabledIdentity(match.summary)}) is disabled: ${match.summary.cause}. Re-authenticate with \`${getAppName()} login ${provider}\` and retry`,
+			{ cause: err },
+		);
 	}
 
 	/**
