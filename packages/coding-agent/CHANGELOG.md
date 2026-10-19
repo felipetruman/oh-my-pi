@@ -10,6 +10,7 @@
 
 - Interface language setting (`display.locale`, default `en-US`) under Appearance → Display in `/settings`. English stays the canonical source and the fallback for anything a translation has not covered; model prompts, tool names, schemas, and protocol fields are unaffected.
 - Brazilian Portuguese (`pt-BR`) interface translation covering the settings panel, the main screen and subagent HUD, session and model pickers, dialogs, Agent Hub, plan review, the slash-command surfaces, MCP, plugins and `/hotkeys`.
+- Added explicit fallback visibility to stderr in print mode (`Warning: Fallback attempt:` and `[ATTRIBUTION] Requested: ... | Served: ...`), along with `--fail-on-fallback` (exits with code 1 if a turn was served by a fallback model) and `--no-model-fallback` (disables retry fallback chains for fail-fast model testing).
 ## [18.6.3] - 2026-10-06
 
 ### Breaking Changes
