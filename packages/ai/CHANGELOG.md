@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Startup credential reload now names the disabled account behind an unmatched `auth.accountPolicies` selector, including its disable cause and the `omp login <provider>` re-authentication step, instead of only reporting that the selector matches no stored OAuth account.
+
 ## [18.6.3] - 2026-10-06
 
 ### Added

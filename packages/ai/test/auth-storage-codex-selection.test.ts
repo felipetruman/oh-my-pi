@@ -743,6 +743,31 @@ describe("AuthStorage codex oauth ranking", () => {
 		);
 	});
 
+	test("names the disabled account when a policy matches only a disabled credential", async () => {
+		if (!store) throw new Error("test setup failed");
+		const provider = "unit-policy-disabled-reload";
+		authStorage = new AuthStorage(store, {
+			accountPolicies: [{ provider, account: { accountId: "acct-required" }, priority: 1 }],
+		});
+		await authStorage.credentials.set(provider, [
+			{ type: "oauth", ...createCredential("acct-required", "required@example.com") },
+			{ type: "oauth", ...createCredential("acct-sibling", "sibling@example.com") },
+		]);
+		const required = store
+			.listAuthCredentials(provider)
+			.find(row => row.credential.type === "oauth" && row.credential.accountId === "acct-required");
+		if (!required) throw new Error("expected stored credential");
+		await store.deleteAuthCredential(required.id, "oauth refresh failed: invalid_grant");
+		const storage = authStorage;
+		const reload = (): Promise<void> => storage.credentials.reload();
+		await expect(reload()).rejects.toThrow("matches no stored OAuth account");
+		await expect(reload()).rejects.toThrow("accountId acct-required");
+		await expect(reload()).rejects.toThrow("is disabled");
+		await expect(reload()).rejects.toThrow("invalid_grant");
+		await expect(reload()).rejects.toThrow(`omp login ${provider}`);
+		expect(store.listAuthCredentials(provider)).toHaveLength(1);
+	});
+
 	test("accepts reserve policies whose usage provider registers after storage construction", async () => {
 		if (!store) throw new Error("test setup failed");
 		const provider = "openai-codex";
