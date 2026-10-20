@@ -599,14 +599,15 @@ export class CommandController {
 		const hidden = builds.length > MAX_LISTED_BUILDS ? builds.length - MAX_LISTED_BUILDS + 1 : 0;
 		for (const [index, build] of builds.entries()) {
 			if (hidden > 0 && index > 0 && index <= hidden) {
-				if (index === 1) info += `${theme.fg("dim", `Builds 2–${hidden + 1}:`)} ${hidden} more\n`;
+				if (index === 1)
+					info += `${theme.fg("dim", t("command.session.buildsHidden", { last: hidden + 1 }))} ${t("command.session.buildsMore", { count: hidden })}\n`;
 				continue;
 			}
-			const key = builds.length === 1 ? "Build:" : `Build ${index + 1}:`;
+			const key = builds.length === 1 ? t("command.session.build") : t("command.session.buildN", { n: index + 1 });
 			info += `${theme.fg("dim", key)} ${replaceTabs(sanitizeText(formatRuntimeIdentity(build)))}\n`;
 		}
 		if (!sameRuntimeIdentity(builds[builds.length - 1], running)) {
-			info += `${theme.fg("dim", "Running:")} ${replaceTabs(sanitizeText(formatRuntimeIdentity(running)))}\n`;
+			info += `${theme.fg("dim", t("command.session.running"))} ${replaceTabs(sanitizeText(formatRuntimeIdentity(running)))}\n`;
 		}
 		info += `\n${theme.bold(t("command.section.provider"))}\n`;
 		const model = this.ctx.session.model;
@@ -882,7 +883,7 @@ export class CommandController {
 
 		const now = Date.now();
 		const columns = this.ctx.ui.terminal.columns ?? 100;
-		let info = `${theme.fg("dim", "Running:")} ${tree.running.length}\n`;
+		let info = `${theme.fg("dim", t("command.session.running"))} ${tree.running.length}\n`;
 		if (tree.running.length === 0 && tree.recent.length === 0) {
 			info += `\n${theme.fg("dim", t("command.jobs.empty"))}`;
 			this.showCommandReport({ title: "Background Jobs", body: new Text(info, 0, 0) });
@@ -1520,8 +1521,8 @@ export class CommandController {
 				theme.fg(
 					"accent",
 					previousSessionId
-						? `${theme.status.success} Session forked · return to original: ${resumeCommand(previousSessionId)} or /resume ${previousSessionId}`
-						: `${theme.status.success} Session forked`,
+						? `${theme.status.success} ${t("command.fork.forkedReturn", { resume: resumeCommand(previousSessionId), id: previousSessionId })}`
+						: `${theme.status.success} ${t("command.fork.forked")}`,
 				),
 				1,
 				1,
