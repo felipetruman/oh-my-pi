@@ -5228,9 +5228,7 @@ export class InteractiveMode implements InteractiveModeContext {
 		if (this.session.hasBuiltInTool("write")) {
 			planAugmentations.push("write");
 		} else if (previousTools.includes("write")) {
-			this.showWarning(
-				"Plan mode: the `write` tool is provided by an extension and cannot submit plans. Disable it to use plan mode.",
-			);
+			this.showWarning(t("command.plan.writeToolExtension"));
 		}
 		const uniquePlanTools = [...new Set([...previousTools.filter(name => name !== "write"), ...planAugmentations])];
 
@@ -6843,7 +6841,7 @@ export class InteractiveMode implements InteractiveModeContext {
 			error => {
 				opened.resolve(false);
 				const message = error instanceof Error ? error.message : String(error);
-				this.showError(isOpen ? `Plan review failed: ${message}` : `Failed to open plan review: ${message}`);
+				this.showError(t(isOpen ? "command.plan.reviewFailed" : "command.plan.reviewOpenFailed", { message }));
 			},
 		);
 		return opened.promise;
@@ -8302,16 +8300,15 @@ export class InteractiveMode implements InteractiveModeContext {
 			if (policy === "off" || !(await canAutoCreateWorktree(this.sessionManager.getCwd()))) return;
 			if (
 				policy === "ask" &&
-				!(await this.showHookConfirm(
-					"Create a worktree for this session?",
-					"Work happens on a new wt/* branch; this checkout stays untouched.",
-				))
+				!(await this.showHookConfirm(t("command.worktree.askTitle"), t("command.worktree.askMessage")))
 			) {
 				return;
 			}
 			await this.handleWorktreeCommand(undefined, { keepChanges: false });
 		} catch (err) {
-			this.showWarning(`Worktree not created: ${err instanceof Error ? err.message : String(err)}`);
+			this.showWarning(
+				t("command.worktree.notCreated", { error: err instanceof Error ? err.message : String(err) }),
+			);
 		}
 	}
 

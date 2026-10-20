@@ -388,4 +388,41 @@ export const commands = {
 	"command.omfg.usage": "Usage: /omfg <complaint>",
 	"command.omfg.validationMessage": "Couldn't confirm this rule matches the conversation. Save anyway?",
 	"command.omfg.validationTitle": "Validation",
+	// ── Upstream 18.12.3 merge (fork in terminal, plan review, worktree prompt) ──
+	"command.fork.streamingTitle": "Fork while a response is running?",
+	"command.fork.streamingMessage":
+		"The child may not include the partial response. Continue opening a fork? The current session will keep running here.",
+	"command.fork.notPersisted":
+		"Cannot open a fork in another terminal: the current session has not been persisted yet.",
+	"command.fork.apiKeyOverride":
+		"Cannot open a fork in another terminal when --api-key was supplied at startup; the key cannot be forwarded without exposing it in the multiplexer command. Configure provider credentials in the auth store and retry.",
+	"command.fork.shellTitle": "Confirm destination shell compatibility",
+	"command.fork.shellMessage":
+		"This fork command uses POSIX shell syntax. Continue only if the destination's configured interactive shell accepts POSIX syntax; this cannot be inferred from the current terminal.",
+	"command.fork.shellCancelled": "Fork cancelled: POSIX shell compatibility was not confirmed for the destination.",
+	"command.fork.saveFailed": "Cannot open a fork in another terminal: failed to save the current session.",
+	"command.fork.noLongerPersisted":
+		"Cannot open a fork in another terminal: the current session is no longer persisted.",
+	"command.fork.transcriptMissing":
+		"Cannot open a fork in another terminal: the persisted session transcript is unavailable.",
+	"command.fork.openedWithWarning": "Opened a fork in {target}, but {warning} This session continues here.",
+	"command.fork.opened": "Opened a fork in {target} ({placement}); this session continues here.",
+	"command.fork.openFailed": "Could not open a fork in {target}: {error}",
+	"command.fork.openFailedSeeLogs": "Could not open a fork in {target}. See logs for details.",
+	"command.fork.ternUnconfirmed": "Tern did not confirm the fork: {error}",
+	"command.fork.ternDone": "Session forked into a new pane{note}",
+	"command.fork.ternNote": " · the running response continues here, not in the fork",
+	"command.mcp.authRequiredNamed": 'Authentication required for "{name}": {error}',
+	"command.model.agentModel": "Agent {agent} model: {model}",
+	"command.model.compactionLimit": "Compaction limit for {model}: {details}",
+	"command.session.consultTitle": "Select a Session to Consult",
+	"command.session.resumedFromWorktree": "Resumed session, moved here from removed worktree {path}",
+	"command.session.moveFromWorktreeFailed": "Could not move the session out of removed worktree {path}: {error}",
+	"command.plan.writeToolExtension":
+		"Plan mode: the `write` tool is provided by an extension and cannot submit plans. Disable it to use plan mode.",
+	"command.plan.reviewFailed": "Plan review failed: {message}",
+	"command.plan.reviewOpenFailed": "Failed to open plan review: {message}",
+	"command.worktree.askTitle": "Create a worktree for this session?",
+	"command.worktree.askMessage": "Work happens on a new wt/* branch; this checkout stays untouched.",
+	"command.worktree.notCreated": "Worktree not created: {error}",
 } as const;

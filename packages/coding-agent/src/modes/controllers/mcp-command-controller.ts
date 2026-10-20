@@ -761,7 +761,10 @@ export class MCPCommandController {
 								// Name a misconfigured advertised server; other failures fall through below.
 								if (discoveryError instanceof OAuthIssuerMismatchError) {
 									this.ctx.showError(
-										`Authentication required for "${parsed.initialName}": ${discoveryError.message}`,
+										t("command.mcp.authRequiredNamed", {
+											name: parsed.initialName,
+											error: discoveryError.message,
+										}),
 									);
 									return;
 								}

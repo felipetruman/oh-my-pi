@@ -392,4 +392,43 @@ export const commands: TranslationTable = {
 	"command.omfg.validationMessage":
 		"Não foi possível confirmar que esta regra corresponde à conversa. Salvar mesmo assim?",
 	"command.omfg.validationTitle": "Validação",
+	// ── Upstream 18.12.3 merge (fork in terminal, plan review, worktree prompt) ──
+	"command.fork.streamingTitle": "Bifurcar enquanto uma resposta está em andamento?",
+	"command.fork.streamingMessage":
+		"A sessão filha pode não incluir a resposta parcial. Continuar abrindo a bifurcação? A sessão atual continuará em execução aqui.",
+	"command.fork.notPersisted":
+		"Não é possível abrir uma bifurcação em outro terminal: a sessão atual ainda não foi salva.",
+	"command.fork.apiKeyOverride":
+		"Não é possível abrir uma bifurcação em outro terminal quando --api-key foi informada na inicialização; a chave não pode ser repassada sem expô-la no comando do multiplexador. Configure as credenciais do provedor no repositório de autenticação e tente novamente.",
+	"command.fork.shellTitle": "Confirmar compatibilidade do shell de destino",
+	"command.fork.shellMessage":
+		"Este comando de bifurcação usa sintaxe de shell POSIX. Continue somente se o shell interativo configurado no destino aceitar sintaxe POSIX; isso não pode ser deduzido do terminal atual.",
+	"command.fork.shellCancelled":
+		"Bifurcação cancelada: a compatibilidade com shell POSIX não foi confirmada para o destino.",
+	"command.fork.saveFailed": "Não é possível abrir uma bifurcação em outro terminal: falha ao salvar a sessão atual.",
+	"command.fork.noLongerPersisted":
+		"Não é possível abrir uma bifurcação em outro terminal: a sessão atual não está mais salva.",
+	"command.fork.transcriptMissing":
+		"Não é possível abrir uma bifurcação em outro terminal: a transcrição salva da sessão não está disponível.",
+	"command.fork.openedWithWarning": "Bifurcação aberta em {target}, mas {warning} Esta sessão continua aqui.",
+	"command.fork.opened": "Bifurcação aberta em {target} ({placement}); esta sessão continua aqui.",
+	"command.fork.openFailed": "Não foi possível abrir uma bifurcação em {target}: {error}",
+	"command.fork.openFailedSeeLogs": "Não foi possível abrir uma bifurcação em {target}. Veja os logs para detalhes.",
+	"command.fork.ternUnconfirmed": "O Tern não confirmou a bifurcação: {error}",
+	"command.fork.ternDone": "Sessão bifurcada em um novo painel{note}",
+	"command.fork.ternNote": " · a resposta em andamento continua aqui, não na bifurcação",
+	"command.mcp.authRequiredNamed": 'Autenticação necessária para "{name}": {error}',
+	"command.model.agentModel": "Modelo do agente {agent}: {model}",
+	"command.model.compactionLimit": "Limite de compactação para {model}: {details}",
+	"command.session.consultTitle": "Selecione uma sessão para consultar",
+	"command.session.resumedFromWorktree": "Sessão retomada, movida para cá a partir de um worktree removido {path}",
+	"command.session.moveFromWorktreeFailed":
+		"Não foi possível mover a sessão para fora do worktree removido {path}: {error}",
+	"command.plan.writeToolExtension":
+		"Modo de plano: a ferramenta `write` é fornecida por uma extensão e não pode enviar planos. Desative-a para usar o modo de plano.",
+	"command.plan.reviewFailed": "Falha na revisão do plano: {message}",
+	"command.plan.reviewOpenFailed": "Falha ao abrir a revisão do plano: {message}",
+	"command.worktree.askTitle": "Criar um worktree para esta sessão?",
+	"command.worktree.askMessage": "O trabalho acontece em uma nova branch wt/*; este checkout permanece intacto.",
+	"command.worktree.notCreated": "Worktree não criado: {error}",
 };

@@ -1541,33 +1541,28 @@ export class CommandController {
 
 		if (this.ctx.session.isStreaming) {
 			const confirmed = await this.ctx.showHookConfirm(
-				"Fork while a response is running?",
-				"The child may not include the partial response. Continue opening a fork? The current session will keep running here.",
+				t("command.fork.streamingTitle"),
+				t("command.fork.streamingMessage"),
 			);
 			if (!confirmed) return;
 		}
 
 		const initialSessionFile = this.ctx.sessionManager.getSessionFile();
 		if (!initialSessionFile) {
-			this.ctx.showError("Cannot open a fork in another terminal: the current session has not been persisted yet.");
+			this.ctx.showError(t("command.fork.notPersisted"));
 			return;
 		}
 
 		const childArgs = restartArgv(dependencies.argv(), undefined, FORK_LAUNCH_OVERRIDES);
 		if (hasForkApiKeyOverride(childArgs)) {
-			this.ctx.showError(
-				"Cannot open a fork in another terminal when --api-key was supplied at startup; the key cannot be forwarded without exposing it in the multiplexer command. Configure provider credentials in the auth store and retry.",
-			);
+			this.ctx.showError(t("command.fork.apiKeyOverride"));
 			return;
 		}
 		const shellGrammar = placementInfo.shellGrammar;
 		if (shellGrammar === "posix") {
-			const confirmed = await this.ctx.showHookConfirm(
-				"Confirm destination shell compatibility",
-				"This fork command uses POSIX shell syntax. Continue only if the destination's configured interactive shell accepts POSIX syntax; this cannot be inferred from the current terminal.",
-			);
+			const confirmed = await this.ctx.showHookConfirm(t("command.fork.shellTitle"), t("command.fork.shellMessage"));
 			if (!confirmed) {
-				this.ctx.showWarning("Fork cancelled: POSIX shell compatibility was not confirmed for the destination.");
+				this.ctx.showWarning(t("command.fork.shellCancelled"));
 				return;
 			}
 		}
@@ -1576,20 +1571,20 @@ export class CommandController {
 			await this.ctx.sessionManager.flush();
 		} catch (error) {
 			logger.error("Failed to flush the session before opening a terminal fork", { error });
-			this.ctx.showError("Cannot open a fork in another terminal: failed to save the current session.");
+			this.ctx.showError(t("command.fork.saveFailed"));
 			return;
 		}
 
 		const sessionFile = this.ctx.sessionManager.getSessionFile();
 		if (!sessionFile) {
-			this.ctx.showError("Cannot open a fork in another terminal: the current session is no longer persisted.");
+			this.ctx.showError(t("command.fork.noLongerPersisted"));
 			return;
 		}
 		const sourceSessionFile = path.resolve(sessionFile);
 		try {
 			await fs.access(sourceSessionFile);
 		} catch {
-			this.ctx.showError("Cannot open a fork in another terminal: the persisted session transcript is unavailable.");
+			this.ctx.showError(t("command.fork.transcriptMissing"));
 			return;
 		}
 
@@ -1641,19 +1636,25 @@ export class CommandController {
 			const result = await dependencies.launchTerminal(launchPlan.request);
 			if (result.warning) {
 				this.ctx.showWarning(
-					`Opened a fork in ${placementInfo.displayName}, but ${result.warning} This session continues here.`,
+					t("command.fork.openedWithWarning", {
+						target: placementInfo.displayName,
+						warning: result.warning,
+					}),
 				);
 				return;
 			}
 			this.ctx.showStatus(
-				`Opened a fork in ${placementInfo.displayName} (${placementInfo.placementLabel}); this session continues here.`,
+				t("command.fork.opened", {
+					target: placementInfo.displayName,
+					placement: placementInfo.placementLabel,
+				}),
 			);
 		} catch (error) {
 			logger.error("Failed to open a terminal fork", { multiplexer, error });
 			this.ctx.showError(
 				error instanceof TerminalLaunchError
-					? `Could not open a fork in ${placementInfo.displayName}: ${error.message}`
-					: `Could not open a fork in ${placementInfo.displayName}. See logs for details.`,
+					? t("command.fork.openFailed", { target: placementInfo.displayName, error: error.message })
+					: t("command.fork.openFailedSeeLogs", { target: placementInfo.displayName }),
 			);
 		}
 	}
@@ -1690,17 +1691,17 @@ export class CommandController {
 					return false;
 				}
 				this.ctx.showError(
-					`Tern did not confirm the fork: ${error instanceof Error ? error.message : String(error)}`,
+					t("command.fork.ternUnconfirmed", { error: error instanceof Error ? error.message : String(error) }),
 				);
 				return true;
 			}
 		} finally {
 			client.close();
 		}
-		const note = this.ctx.session.isStreaming ? " · the running response continues here, not in the fork" : "";
+		const note = this.ctx.session.isStreaming ? t("command.fork.ternNote") : "";
 		this.ctx.present([
 			new Spacer(1),
-			new Text(theme.fg("accent", `${theme.status.success} Session forked into a new pane${note}`), 1, 1),
+			new Text(theme.fg("accent", `${theme.status.success} ${t("command.fork.ternDone", { note })}`), 1, 1),
 		]);
 		return true;
 	}

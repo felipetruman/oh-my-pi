@@ -794,7 +794,7 @@ export class SelectorController {
 			this.ctx.statusLine.invalidate();
 			this.ctx.updateEditorBorderColor();
 			if (focusedAgentId) {
-				this.ctx.showStatus(`Agent ${focusedAgentId} model: ${selector}`);
+				this.ctx.showStatus(t("command.model.agentModel", { agent: focusedAgentId, model: selector }));
 				return;
 			}
 			const roleSelectorHint = appKey(this.ctx.keybindings, "app.model.select") || formatKeyHint("alt+m");
@@ -1137,7 +1137,9 @@ export class SelectorController {
 									}
 									this.ctx.statusLine.invalidate();
 									this.ctx.updateEditorBorderColor();
-									this.ctx.showStatus(`Default model: ${fallbackModel.provider}/${fallbackModel.id}`);
+									this.ctx.showStatus(
+										t("nav.model.defaultSet", { selector: `${fallbackModel.provider}/${fallbackModel.id}` }),
+									);
 								}
 							}
 						}
@@ -1188,7 +1190,10 @@ export class SelectorController {
 						if (update.kind === "confirm") return update;
 						const { described, summary } = update;
 						this.ctx.showStatus(
-							`Compaction limit for ${model.provider}/${model.id}: ${described}${summary ? ` · ${summary}` : ""}`,
+							t("command.model.compactionLimit", {
+								model: `${model.provider}/${model.id}`,
+								details: `${described}${summary ? ` · ${summary}` : ""}`,
+							}),
 						);
 						this.ctx.statusLine.invalidate();
 						// The entry can move the model between window tiers; the open hub's
@@ -1893,8 +1898,8 @@ export class SelectorController {
 							},
 						}
 					: {
-							title: "Select a Session to Consult",
-							actionLabel: "Select",
+							title: t("command.session.consultTitle"),
+							actionLabel: t("common.select"),
 							scopeLabel: false,
 							showCwd: true,
 						}),
@@ -2048,7 +2053,7 @@ export class SelectorController {
 		await this.ctx.reloadTodos();
 		this.ctx.showStatus(
 			target.movedFrom
-				? `Resumed session, moved here from removed worktree ${shortenPath(target.movedFrom)}`
+				? t("command.session.resumedFromWorktree", { path: shortenPath(target.movedFrom) })
 				: movedProject
 					? t("nav.session.resumedIn", { path: shortenPath(newCwd) })
 					: t("nav.session.resumed"),
@@ -2079,7 +2084,10 @@ export class SelectorController {
 			return { sessionPath: movedPath, movedFrom: info.cwd };
 		} catch (error) {
 			this.ctx.showError(
-				`Could not move the session out of removed worktree ${shortenPath(info.cwd)}: ${error instanceof Error ? error.message : String(error)}`,
+				t("command.session.moveFromWorktreeFailed", {
+					path: shortenPath(info.cwd),
+					error: error instanceof Error ? error.message : String(error),
+				}),
 			);
 			return undefined;
 		}
