@@ -67,15 +67,15 @@ import { boundKeys, interruptKey } from "../chrome/keybinding-hints";
 function formatSessionStatus(status: SessionSelectorStatus | undefined): string | undefined {
 	switch (status) {
 		case "complete":
-			return theme.fg("success", `${theme.status.success} ${"done"}`);
+			return theme.fg("success", `${theme.status.success} ${t("selector.status.done")}`);
 		case "interrupted":
 			return theme.fg("warning", `${theme.status.warning} ${t("session.status.interrupted")}`);
 		case "aborted":
-			return theme.fg("muted", `${theme.status.aborted} ${"aborted"}`);
+			return theme.fg("muted", `${theme.status.aborted} ${t("selector.status.aborted")}`);
 		case "error":
-			return theme.fg("error", `${theme.status.error} ${"error"}`);
+			return theme.fg("error", `${theme.status.error} ${t("selector.status.error")}`);
 		case "pending":
-			return theme.fg("accent", `${theme.status.pending} ${"pending"}`);
+			return theme.fg("accent", `${theme.status.pending} ${t("selector.status.pending")}`);
 		default:
 			return undefined;
 	}
@@ -1220,7 +1220,7 @@ class SessionList<T extends SessionSelectorEntry> implements Component {
 				metadata += ` ${dot} ${status}`;
 			}
 			if (session.parentSessionPath) {
-				metadata += ` ${dot} ${dim(`${theme.icon.branch} ${"fork"}`)}`;
+				metadata += ` ${dot} ${dim(`${theme.icon.branch} ${t("selector.status.fork")}`)}`;
 			}
 			if (this.#showCwd && session.cwd) {
 				metadata += ` ${dot} ${dim(shortenPath(session.cwd))}`;

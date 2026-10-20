@@ -56,12 +56,13 @@ const TITLE = t("pause.title");
 const BODY_LINES = [t("pause.bodyHold"), t("pause.bodyInFlight")] as const;
 
 /** What the hold means, one fact per row of the native sheet: icon, what, detail. */
-const HOLD_FACTS = [
-	["users", "Every agent holds", "Main agent, subagents and advisor stop at their next step."],
-	["activity", "Running calls finish", "A reply or tool already under way completes; nothing new starts."],
-	["message", "Queued messages wait", "Steering and follow-ups already queued send after you resume."],
-	["pen", "The repo is yours", "Edit files freely, then tell the agent what changed."],
-] as const;
+const holdFacts = () =>
+	[
+		["users", t("pause.fact.holdsTitle"), t("pause.fact.holdsDetail")],
+		["activity", t("pause.fact.finishTitle"), t("pause.fact.finishDetail")],
+		["message", t("pause.fact.queuedTitle"), t("pause.fact.queuedDetail")],
+		["pen", t("pause.fact.repoTitle"), t("pause.fact.repoDetail")],
+	] as const;
 
 /** Live hold clock, seconds-precise: `0:07`, `12:34`, `1:02:03`. */
 function formatClock(ms: number): string {
@@ -106,7 +107,7 @@ export function renderPauseScreen(width: number, height: number, elapsedMs: numb
 		content.push("");
 		content.push(centerLine(theme.bold(theme.fg("accent", TITLE)), width).trimEnd());
 		content.push("");
-		for (const line of [t("pause.bodyHold"), t("pause.bodyInFlight")]) {
+		for (const line of BODY_LINES) {
 			content.push(centerLine(theme.fg("muted", line), width).trimEnd());
 		}
 		content.push("");
@@ -180,7 +181,9 @@ export class PauseScreenComponent implements Component, OverlayFocusOwner {
 	}
 
 	/** A glass sheet titled "Paused" (not the whole pane: the transcript stays visible, frozen). */
-	readonly nativeOverlay = { role: "omp.overlay.pause", size: "md", anchor: "center", head: "Paused" } as const;
+	get nativeOverlay() {
+		return { role: "omp.overlay.pause", size: "md", anchor: "center", head: t("pause.native.head") } as const;
+	}
 
 	/**
 	 * The sheet: a hero (the pause glyph beside the live hold clock and the
@@ -201,13 +204,13 @@ export class PauseScreenComponent implements Component, OverlayFocusOwner {
 								age: Date.now() - this.#startedAt,
 								format: "clock",
 								role: "omp.pause.clock",
-								title: "Paused for",
+								title: t("pause.native.pausedFor"),
 							},
 							undefined,
 							"clock",
 						),
 						keyed(
-							text([span(this.host.sessionName ?? "Every agent in this session", "muted")], {
+							text([span(this.host.sessionName ?? t("pause.native.everyAgent"), "muted")], {
 								role: "omp.pause.session",
 								wrap: "none",
 								truncate: "end",
@@ -221,7 +224,7 @@ export class PauseScreenComponent implements Component, OverlayFocusOwner {
 			{ role: "omp.pause.hero", gap: "md", align: "center" },
 		);
 		const facts = col(
-			HOLD_FACTS.map(([icon, what, detail], index) =>
+			holdFacts().map(([icon, what, detail], index) =>
 				keyed(
 					row(
 						[
@@ -244,16 +247,13 @@ export class PauseScreenComponent implements Component, OverlayFocusOwner {
 				keyed(hero, "hero"),
 				keyed(facts, "facts"),
 				actionBar([
-					keyed(
-						text([span("Each agent continues where it stopped.", "muted")], { role: "omp.pause.note" }),
-						"note",
-					),
+					keyed(text([span(t("pause.native.continues"), "muted")], { role: "omp.pause.note" }), "note"),
 					null,
-					actionButton("Resume", "resume", {
+					actionButton(t("pause.native.resume"), "resume", {
 						keys: resumeKey,
 						tone: "accent",
 						// Each ` · ` clause ending in two spaces and a key is a keycap: `Resume [esc] · [⏎] · [space]`.
-						title: `Resume  ${formatTooltipKey(resumeKey)} ·   ${formatTooltipKey("enter")} ·   ${formatTooltipKey("space")}`,
+						title: `${t("pause.native.resume")}  ${formatTooltipKey(resumeKey)} ·   ${formatTooltipKey("enter")} ·   ${formatTooltipKey("space")}`,
 					}),
 				]),
 			],

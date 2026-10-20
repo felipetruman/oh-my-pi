@@ -45,7 +45,7 @@ export class PluginSelectorComponent extends OverlayPanel {
 			const id = scope ? `${plugin.name}@${marketplace}#${scope}` : `${plugin.name}@${marketplace}`;
 			const installed = installedIds.has(`${plugin.name}@${marketplace}`);
 			const version = plugin.version ? `@${plugin.version}` : "";
-			const status = installed ? ` [${"installed"}]` : "";
+			const status = installed ? ` [${t("selector.status.installed")}]` : "";
 			const scopeTag = scope ? ` [${scope}]` : "";
 			badgesByValue.set(id, [
 				...(plugin.version ? [{ text: plugin.version }] : []),

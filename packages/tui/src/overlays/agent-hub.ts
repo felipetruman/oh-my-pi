@@ -2019,7 +2019,7 @@ export class AgentHubOverlayComponent<TRecord extends AgentRecordLike = AgentRec
 				...wrapTextWithAnsi(
 					theme.fg(
 						"dim",
-						`${"Usage —"}${theme.sep.dot}${t("hub.usage.measured", {
+						`${t("hub.usage.title")}${theme.sep.dot}${t("hub.usage.measured", {
 							count: 0,
 							total: this.#rows.length,
 						})}`,
@@ -2273,7 +2273,7 @@ export class AgentHubOverlayComponent<TRecord extends AgentRecordLike = AgentRec
 			entry.push(`${indent}${theme.fg("muted", truncateToWidth(sanitizeLine(task, detailWidth), detailWidth))}`);
 		}
 		const age = formatAge(Math.max(1, Math.round((Date.now() - ref.lastActivity) / 1000)));
-		const metadata = metrics ? formatMetricColumns(metrics, age) : `${"usage"} ${theme.sep.dot} ${age}`;
+		const metadata = metrics ? formatMetricColumns(metrics, age) : `${t("hub.usage.word")} ${theme.sep.dot} ${age}`;
 		entry.push(`${metadataPrefix}${theme.fg("dim", metadata)}`);
 		if (!hovered) return entry;
 		return entry.map(lineRow => {

@@ -487,8 +487,8 @@ export class AgentsHubComponent implements Component {
 		const enabledChip: StripChip = {
 			label: agent.disabled ? t("hub.agents.chip.enable") : t("hub.agents.chip.disable"),
 			styled: agent.disabled
-				? theme.fg("success", `${theme.status.enabled} ${"enable"}`)
-				: theme.fg("dim", `${theme.status.disabled} ${"disable"}`),
+				? theme.fg("success", `${theme.status.enabled} ${t("selector.status.enable")}`)
+				: theme.fg("dim", `${theme.status.disabled} ${t("selector.status.disable")}`),
 			action: { kind: "toggle" },
 		};
 		const propertyChip = (property: PropertyKind): StripChip => {

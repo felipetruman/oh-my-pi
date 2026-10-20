@@ -277,7 +277,7 @@ export function formatExtensionListHint(ext: Extension, lives: LiveToolRecord[] 
 		case "tool": {
 			if (lives.length > 1) {
 				detail = t("plugin.state.toolCount", { count: lives.length });
-				if (lives.every(tool => tool.hidden)) detail = `${"hidden"} · ${detail}`;
+				if (lives.every(tool => tool.hidden)) detail = `${t("command.state.hidden")} · ${detail}`;
 			} else if (lives[0]?.hidden) {
 				detail = t("plugin.state.hidden");
 			}

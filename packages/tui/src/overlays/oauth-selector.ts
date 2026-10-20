@@ -251,16 +251,16 @@ export class OAuthSelectorComponent extends OverlayPanel {
 		if (state === "checking") {
 			const frameCount = theme.spinnerFrames.length;
 			const spinner = frameCount > 0 ? theme.spinnerFrames[this.#spinnerFrame % frameCount] : theme.status.pending;
-			return theme.fg("warning", ` ${spinner} ${"checking"}`) + source;
+			return theme.fg("warning", ` ${spinner} ${t("auth.oauth.checking")}`) + source;
 		}
 		if (state === "invalid") {
-			return theme.fg("error", ` ${theme.status.error} ${"invalid"}`) + source;
+			return theme.fg("error", ` ${theme.status.error} ${t("auth.oauth.invalid")}`) + source;
 		}
 		if (state === "valid") {
-			return theme.fg("success", ` ${theme.status.enabled} ${"logged in"}`) + source;
+			return theme.fg("success", ` ${theme.status.enabled} ${t("auth.oauth.loggedIn")}`) + source;
 		}
 		return this.#hasSelectableAuth(providerId)
-			? theme.fg("success", ` ${theme.status.enabled} ${"logged in"}`) + source
+			? theme.fg("success", ` ${theme.status.enabled} ${t("auth.oauth.loggedIn")}`) + source
 			: "";
 	}
 
