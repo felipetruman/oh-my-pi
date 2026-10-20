@@ -1,0 +1,19 @@
+# Falsos positivos do gitleaks (fixtures de teste e chave de modelo do upstream can1357/oh-my-pi).
+# Triados em 2026-10-20 por regra/arquivo/commit com --redact: todos em test/, fixtures ou stt/models.ts (chave 'whisper-large-v3-turbo').
+# Um fingerprint por linha: <commit>:<arquivo>:<regra>:<linha>.
+0ef82371215fd24773030e9e220ca3fc4cd4b158:packages/catalog/test/image-tokenization.test.ts:generic-api-key:145
+39ce4806e70a17064621519eff6f08a06ef0e42b:packages/ai/test/factory-droid-gemini.test.ts:generic-api-key:265
+39ce4806e70a17064621519eff6f08a06ef0e42b:packages/ai/test/factory-droid-gemini.test.ts:github-pat:265
+39ce4806e70a17064621519eff6f08a06ef0e42b:packages/coding-agent/src/stt/models.ts:generic-api-key:79
+39ce4806e70a17064621519eff6f08a06ef0e42b:packages/coding-agent/test/acp-session-effects.test.ts:github-pat:19
+39ce4806e70a17064621519eff6f08a06ef0e42b:packages/coding-agent/test/skillshare/pack.test.ts:private-key:141
+5060ac09dea7fad2eaaba2bfd7aac632353e97da:packages/ai/test/fixtures/factory-droid-responses-ws-frames.jsonl:generic-api-key:1
+5060ac09dea7fad2eaaba2bfd7aac632353e97da:packages/ai/test/fixtures/factory-droid-responses-ws-frames.jsonl:generic-api-key:2
+5060ac09dea7fad2eaaba2bfd7aac632353e97da:packages/ai/test/fixtures/factory-droid-responses-ws-frames.jsonl:generic-api-key:9
+5d43f390911533096562d11d393d430845dc8101:packages/coding-agent/test/skillshare/pack.test.ts:private-key:140
+ae7af75570e5b384eb3cae43781a474a46ce6ef6:packages/coding-agent/src/stt/models.ts:generic-api-key:79
+c4a2441d8f9195de810b3492be5bf5673cecf9c9:packages/coding-agent/test/acp-session-effects.test.ts:github-pat:15
+cde2fee500fb8f5c85c8c93a20453c7cd20a4232:packages/ai/test/factory-droid-gemini.test.ts:generic-api-key:265
+cde2fee500fb8f5c85c8c93a20453c7cd20a4232:packages/ai/test/factory-droid-gemini.test.ts:github-pat:265
+e773aaba6eeb68d411524726b2a4009d0a894c07:packages/coding-agent/test/advisor/advisor.test.ts:generic-api-key:2147
+e862306ddc660110f4077b8d4075d4c60e098b18:packages/coding-agent/test/model-registry.test.ts:generic-api-key:2835
