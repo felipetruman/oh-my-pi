@@ -23,14 +23,20 @@ const oneLine = (value: string): string => sanitizeText(value.replace(/[\r\n\t]+
 /** Reset count, usability, expiry and unavailability of an account row, or its error. */
 function accountCountLabel(account: ResetUsageAccount): string {
 	if (account.error) return oneLine(account.error);
-	let countLabel = `${account.availableCount} saved reset${account.availableCount === 1 ? "" : "s"}`;
+	let countLabel =
+		account.availableCount === 1
+			? t("auth.resetUsage.savedCountOne")
+			: t("auth.resetUsage.savedCountOther", { count: account.availableCount });
 	if (account.redeemableCount !== account.availableCount) {
-		countLabel += ` · ${account.redeemableCount} usable now`;
+		countLabel += ` · ${t("resetSel.usableNow", { count: account.redeemableCount })}`;
 	}
 	if (account.expiresAt) {
 		const expiryMs = Date.parse(account.expiresAt);
 		if (!Number.isNaN(expiryMs)) {
-			countLabel += expiryMs > Date.now() ? ` · expires in ${formatDuration(expiryMs - Date.now())}` : " · expired";
+			countLabel +=
+				expiryMs > Date.now()
+					? ` · ${t("resetSel.expiresIn", { duration: formatDuration(expiryMs - Date.now()) })}`
+					: ` · ${t("resetSel.expired")}`;
 		}
 	}
 	if (account.redeemableCount <= 0 && account.unavailableReason) {
@@ -182,9 +188,7 @@ export class ResetUsageSelectorComponent extends OverlayPanel {
 		}
 
 		if (total === 0) {
-			this.#listContainer.addChild(
-				new TruncatedText(theme.fg("muted", "No provider accounts with saved resets"), 0, 0),
-			);
+			this.#listContainer.addChild(new TruncatedText(theme.fg("muted", t("resetSel.empty")), 0, 0));
 		}
 
 		const pending = items.find(item => this.#menu.isPending(item));
@@ -207,12 +211,14 @@ export class ResetUsageSelectorComponent extends OverlayPanel {
 		const subject = account.credit?.title ? `“${account.credit.title}”` : t("auth.resetUsage.savedCountOne");
 		const notes: string[] = [];
 		if (account.credit?.program === "juniper_tide") {
-			notes.push("This resets Claude's 5h session limit only; weekly limits stay unchanged.");
+			notes.push(t("resetSel.noteJuniperTide"));
 		} else if (account.credit?.clears?.length) {
-			notes.push(`Covers ${account.credit.clears.map(formatUsageResetWindow).join(", ")}.`);
+			notes.push(
+				t("resetSel.noteCovers", { windows: account.credit.clears.map(formatUsageResetWindow).join(", ") }),
+			);
 		}
 		if (account.credit?.requiresLimit === false) {
-			notes.push("Optional early use: this can be spent before the covered limit is reached.");
+			notes.push(t("resetSel.noteOptionalEarly"));
 		}
 		return { subject, notes };
 	}
@@ -267,8 +273,8 @@ export class ResetUsageSelectorComponent extends OverlayPanel {
 		if (!account) return;
 		if (account.redeemableCount <= 0) {
 			this.#statusMessage = account.unavailableReason
-				? `That account's saved resets are unavailable: ${account.unavailableReason}`
-				: "That account has no saved resets usable right now.";
+				? t("resetSel.unavailable", { reason: account.unavailableReason })
+				: t("resetSel.noneUsable");
 			this.#updateList();
 			return;
 		}
@@ -307,7 +313,7 @@ export class ResetUsageSelectorComponent extends OverlayPanel {
 				"list",
 				{
 					selected: this.#menu.selectedKey ?? null,
-					empty: [span("No provider accounts with saved resets", "muted")],
+					empty: [span(t("resetSel.empty"), "muted")],
 					max: { lines: RESET_SELECTOR_MAX_VISIBLE },
 				},
 				this.#nativeItems,
@@ -339,15 +345,19 @@ export class ResetUsageSelectorComponent extends OverlayPanel {
 		const pending = this.#menu.visibleItems.find(item => this.#menu.isPending(item));
 		// The strip asks the question over the row; what the reset covers reads in the subtitle meanwhile.
 		let confirm: TspPickerProps["confirm"] = null;
-		let subtitle: TspPickerProps["subtitle"] = "Spend a saved reset to refresh an account's rate limit now";
+		let subtitle: TspPickerProps["subtitle"] = t("resetSel.subtitle");
 		if (pending) {
 			const { subject, notes } = this.#confirmationNotes(pending);
-			confirm = { text: `Spend ${subject} on ${oneLine(pending.label)}?`, act: "confirm", label: "Spend" };
+			confirm = {
+				text: t("resetSel.confirm", { subject, label: oneLine(pending.label) }),
+				act: "confirm",
+				label: t("resetSel.spend"),
+			};
 			if (notes.length > 0) subtitle = oneLine(notes.join(" "));
 		}
 		if (this.#statusMessage) subtitle = [span(oneLine(this.#statusMessage), "warning")];
 		this.#pickerRoot = dockedPicker({
-			title: "Rate-limit resets",
+			title: t("resetSel.title"),
 			subtitle,
 			icon: "refresh",
 			noun: "accounts",
@@ -364,8 +374,8 @@ export class ResetUsageSelectorComponent extends OverlayPanel {
 				.filter(account => account.active)
 				.map(account => this.#menu.adapter.getKey(account)),
 			selected: this.#menu.selectedKey ?? null,
-			empty: "No provider accounts with saved resets",
-			actions: [pickerAction("confirm", "Spend reset", "enter", { primary: true }), CLOSE_ACTION],
+			empty: t("resetSel.empty"),
+			actions: [pickerAction("confirm", t("resetSel.spendReset"), "enter", { primary: true }), CLOSE_ACTION],
 			confirm,
 		});
 		return this.#pickerRoot;

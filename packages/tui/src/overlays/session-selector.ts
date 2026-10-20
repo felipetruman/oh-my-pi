@@ -169,14 +169,14 @@ function sessionPreview(session: SessionSelectorEntry, forkedFrom: string | unde
 	return compact([
 		node("text", { text: sessionLabel(session), role: "omp.picker.title" }),
 		kv([
-			["Folder", session.cwd ? cwdSpans(session.cwd) : undefined],
-			["Created", created && pickerDate(created)],
-			["Modified", pickerDate(session.modified)],
-			["Size", formatBytes(session.size)],
-			["Status", status && [status]],
-			["Forked from", forkedFrom],
+			[t("session.preview.folder"), session.cwd ? cwdSpans(session.cwd) : undefined],
+			[t("session.preview.created"), created && pickerDate(created)],
+			[t("session.preview.modified"), pickerDate(session.modified)],
+			[t("session.preview.size"), formatBytes(session.size)],
+			[t("session.preview.status"), status && [status]],
+			[t("session.preview.forkedFrom"), forkedFrom],
 		]),
-		conversation.length > 0 && node("section", { head: "Conversation" }, conversation),
+		conversation.length > 0 && node("section", { head: t("session.preview.conversation") }, conversation),
 	]);
 }
 
@@ -980,9 +980,12 @@ class SessionList<T extends SessionSelectorEntry> implements Component {
 		const title = session.title ? plainText(session.title).trim() : "";
 		const badges: { text: string; tone?: TspTone; title?: string }[] = [];
 		if (session.parentSessionPath) {
-			badges.push({ text: "fork", title: `Forked from “${this.parentLabel(session.parentSessionPath)}”` });
+			badges.push({
+				text: t("session.fork"),
+				title: t("session.forkedFromTitle", { label: this.parentLabel(session.parentSessionPath) }),
+			});
 		}
-		if (session.path === currentPath) badges.push({ text: "current", tone: "accent" });
+		if (session.path === currentPath) badges.push({ text: t("session.current"), tone: "accent" });
 		const when = pickerDate(session.modified);
 		const detail = this.#showCwd ? (session.cwd ? cwdSpans(session.cwd) : undefined) : title ? message : undefined;
 		const dot = sessionStatusTone(session.status);
@@ -1027,7 +1030,13 @@ class SessionList<T extends SessionSelectorEntry> implements Component {
 			if (!base) continue;
 			add.push(
 				now.has(key)
-					? { ...base, badges: [...(base.badges ?? []), { text: "history", title: "Matched in prompt history" }] }
+					? {
+							...base,
+							badges: [
+								...(base.badges ?? []),
+								{ text: t("session.historyBadge"), title: t("session.historyBadgeTitle") },
+							],
+						}
 					: base,
 			);
 		}
@@ -1066,7 +1075,11 @@ class SessionList<T extends SessionSelectorEntry> implements Component {
 		if (memo?.items === items.items && memo.selected === selected && memo.query === query) return memo.node;
 		const empty: TspText = this.#showCwd
 			? [span(t("session.empty"), "muted")]
-			: [span("No sessions in current folder. Press ", "muted"), span("tab", "key"), span(" to view all.", "muted")];
+			: [
+					span(t("session.emptyFolderPre"), "muted"),
+					span("tab", "key"),
+					span(t("session.emptyFolderPost"), "muted"),
+				];
 		const list = node(
 			"list",
 			{ selected: selected ?? null, filter: query.trim() || undefined, empty, virtual: true },
@@ -1469,7 +1482,7 @@ export class SessionSelectorComponent<T extends SessionSelectorEntry = SessionSe
 		this.#getTerminalRows = options.getTerminalRows ?? (() => 24);
 		this.#fillHeight = options.fillHeight ?? false;
 		this.#title = options.title ?? t("session.resumeTitle");
-		this.#actionLabel = options.actionLabel ?? "Resume";
+		this.#actionLabel = options.actionLabel ?? t("session.action.resume");
 		this.#pickerTitle = options.title;
 		this.#standalone = options.standalone ?? false;
 		this.#scopeLabel = options.scopeLabel;
@@ -1792,21 +1805,27 @@ export class SessionSelectorComponent<T extends SessionSelectorEntry = SessionSe
 		const loading = message?.kind === "loading";
 		const toggle = list.onToggleScope !== undefined;
 		const actions = [pickerAction("resume", this.#actionLabel, "enter", { primary: true })];
-		if (this.#onDelete) actions.push(pickerAction("delete", "Delete", "backspace"));
+		if (this.#onDelete) actions.push(pickerAction("delete", t("session.action.delete"), "backspace"));
 		if (toggle) {
-			actions.push(pickerAction("scope", this.#scope === "all" ? "This folder" : "All projects", "tab"));
+			actions.push(
+				pickerAction(
+					"scope",
+					this.#scope === "all" ? t("session.action.thisFolder") : t("session.action.allProjects"),
+					"tab",
+				),
+			);
 		}
 		actions.push(
-			pickerAction("close", "Close", boundKeys("app.interrupt", ["escape"])[0] ?? "escape", { end: true }),
+			pickerAction("close", t("common.close"), boundKeys("app.interrupt", ["escape"])[0] ?? "escape", { end: true }),
 		);
 		const folder = this.#scopeLabel === false ? undefined : (this.#scopeLabel ?? path.basename(getProjectDir()));
 		const title = this.#pickerTitle;
 		const placeholder =
 			loading || this.#scope === "all"
-				? "Search all sessions…"
+				? t("session.search.all")
 				: folder && !title
-					? `Search sessions in ${folder}…`
-					: "Search sessions…";
+					? t("session.search.inFolder", { folder })
+					: t("session.search.default");
 		const result = picker(
 			{
 				...(title ? { title, ...(folder ? { subtitle: folder } : {}) } : {}),
@@ -1832,12 +1851,12 @@ export class SessionSelectorComponent<T extends SessionSelectorEntry = SessionSe
 				actions,
 				state: loading ? "loading" : errorOpen ? "error" : "ready",
 				...(loading || errorOpen ? { message: message!.text } : {}),
-				empty: this.#scope === "all" || !toggle ? "No sessions yet" : "No sessions in this folder yet",
+				empty: this.#scope === "all" || !toggle ? t("session.emptyAll") : t("session.emptyFolderYet"),
 				confirm: choice
 					? {
-							text: `Delete “${sessionLabel(choice.session)}”? This removes the session file.`,
+							text: t("session.deleteConfirm", { label: sessionLabel(choice.session) }),
 							act: "delete-confirm",
-							label: "Delete",
+							label: t("session.action.delete"),
 						}
 					: null,
 			},

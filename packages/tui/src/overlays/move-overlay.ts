@@ -188,16 +188,18 @@ export class MoveOverlay implements Component, Focusable {
 			"results",
 		);
 		const hints = statusHintsRow(
-			[span("Type to filter", "dim")],
-			[actionHint(["tui.select.up", "tui.select.down"], "navigate")],
+			[span(t("moveSel.typeToFilter"), "dim")],
+			[actionHint(["tui.select.up", "tui.select.down"], t("selector.hint.navigate"))],
 		);
 		// Accept, Confirm and Cancel run what Tab, Enter and Esc run.
 		const actions = actionBar([
-			actionButton("Accept", "accept", { keys: "tab" }),
+			actionButton(t("moveSel.accept"), "accept", { keys: "tab" }),
 			null,
 			// The bound cancel key; Esc also cancels when it is unbound.
-			actionButton("Cancel", "cancel", { keys: getKeybindings().getKeys("tui.select.cancel")[0] ?? "escape" }),
-			actionButton("Confirm", "confirm", { keys: "enter", tone: "accent" }),
+			actionButton(t("common.cancel"), "cancel", {
+				keys: getKeybindings().getKeys("tui.select.cancel")[0] ?? "escape",
+			}),
+			actionButton(t("common.confirm"), "confirm", { keys: "enter", tone: "accent" }),
 		]);
 		const described = overlayCard("omp.dialog.move", t("nav.move.title"), [this.#field, list, hints, actions]);
 		this.#native = { revision: this.#revision, node: described };
