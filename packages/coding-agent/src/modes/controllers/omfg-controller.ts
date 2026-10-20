@@ -36,6 +36,8 @@ interface GenerateCandidateOptions {
 type SaveCandidateResult = { kind: "saved" | "aborted" | "rejected" } | { kind: "amend"; feedback: string };
 
 const MAX_ATTEMPTS = 3;
+/** Keep /omfg prompts in the composer slot: a picker sheet would cover the candidate rule above it. */
+const OMFG_DIALOG = { inline: true } as const;
 
 export class OmfgController {
 	#activeRequest: OmfgRequest | undefined;
@@ -104,6 +106,7 @@ export class OmfgController {
 					const shouldSave = await this.ctx.showHookConfirm(
 						t("command.omfg.validationTitle"),
 						t("command.omfg.validationMessage"),
+						OMFG_DIALOG,
 					);
 					if (!this.#isActiveRequest(request)) return;
 					if (!shouldSave) {
@@ -217,11 +220,11 @@ export class OmfgController {
 			const projectOption = t("command.omfg.saveProject");
 			const globalOption = t("command.omfg.saveGlobal");
 			const amendOption = t("command.omfg.saveAmend");
-			const location = await this.ctx.showHookSelector(t("command.omfg.saveTitle"), [
-				projectOption,
-				globalOption,
-				amendOption,
-			]);
+			const location = await this.ctx.showHookSelector(
+				t("command.omfg.saveTitle"),
+				[projectOption, globalOption, amendOption],
+				OMFG_DIALOG,
+			);
 			if (!this.#isActiveRequest(request)) return { kind: "aborted" };
 			if (!location) {
 				request.component.markAborted();
@@ -246,6 +249,7 @@ export class OmfgController {
 				const shouldOverwrite = await this.ctx.showHookConfirm(
 					t("command.omfg.overwriteTitle"),
 					t("command.omfg.overwriteMessage", { path: shortenPath(target.filePath) }),
+					OMFG_DIALOG,
 				);
 				if (!this.#isActiveRequest(request)) return { kind: "aborted" };
 				if (!shouldOverwrite) {

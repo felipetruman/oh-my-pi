@@ -18,6 +18,7 @@ import {
 	fetchResourceMetadataScopes,
 	loadAllMCPConfigs,
 	MCPManager,
+	OAuthIssuerMismatchError,
 	type OAuthEndpoints,
 } from "../../mcp";
 import { connectToServer, disconnectServer, listTools } from "../../mcp/client";
@@ -46,7 +47,6 @@ import {
 	type SmitheryCliPollResponse,
 	saveSmitheryApiKey,
 } from "../../mcp/smithery-auth";
-import { SmitheryConnectError } from "../../mcp/smithery-connect";
 import {
 	SmitheryRegistryError,
 	type SmitherySearchResult,
@@ -757,8 +757,14 @@ export class MCPCommandController {
 									authResult.resourceMetadataUrl,
 									{ protectedScopes: authResult.scopes },
 								);
-							} catch {
-								// Ignore discovery error and handle below.
+							} catch (discoveryError) {
+								// Name a misconfigured advertised server; other failures fall through below.
+								if (discoveryError instanceof OAuthIssuerMismatchError) {
+									this.ctx.showError(
+										`Authentication required for "${parsed.initialName}": ${discoveryError.message}`,
+									);
+									return;
+								}
 							}
 						}
 						if (oauth && !oauth.scopes && authResult.resourceMetadataUrl) {
@@ -2575,7 +2581,7 @@ export class MCPCommandController {
 	}
 
 	#getSmitheryErrorStatus(error: unknown): number | undefined {
-		if (error instanceof SmitheryRegistryError || error instanceof SmitheryConnectError) {
+		if (error instanceof SmitheryRegistryError) {
 			return error.status;
 		}
 		return undefined;

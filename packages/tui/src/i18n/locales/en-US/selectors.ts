@@ -300,6 +300,7 @@ export const selectors = {
 	"dialog.reviewAnswers": "Review answers",
 	"dialog.submit": "Submit",
 	"dialog.unanswered": "unanswered",
+	"dialog.unansweredReview": "Unanswered",
 	"dialog.unansweredOne": "1 unanswered question; Enter still submits.",
 	"dialog.unansweredOther": "{count} unanswered questions; Enter still submits.",
 	"dialog.footer.actionMulti": "Space toggle · Enter {enter}",

@@ -299,6 +299,7 @@ export const selectors: TranslationTable = {
 	"dialog.reviewAnswers": "Revisar respostas",
 	"dialog.submit": "Enviar",
 	"dialog.unanswered": "sem resposta",
+	"dialog.unansweredReview": "Sem resposta",
 	"dialog.unansweredOne": "1 pergunta sem resposta; Enter envia mesmo assim.",
 	"dialog.unansweredOther": "{count} perguntas sem resposta; Enter envia mesmo assim.",
 	"dialog.footer.actionMulti": "Space alternar · Enter {enter}",
