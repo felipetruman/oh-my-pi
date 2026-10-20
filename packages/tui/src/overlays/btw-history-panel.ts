@@ -145,11 +145,11 @@ const EMPTY_SHEET = {
 function describeStatus(status: BtwHistoryTurn["status"]): TspSpan[] | undefined {
 	switch (status) {
 		case "running":
-			return [span("●", "accent", { fx: "pulse" }), span(" Answering", "accent")];
+			return [span("●", "accent", { fx: "pulse" }), span(` ${t("nav.btw.answering")}`, "accent")];
 		case "cancelled":
 			return [span(t("nav.btw.statusCancelled"), "warning")];
 		case "error":
-			return [span("Failed", "error")];
+			return [span(t("nav.btw.statusFailed"), "error")];
 		case "interrupted":
 			return [span(t("nav.btw.statusInterrupted"), "warning")];
 		case "complete":
@@ -343,7 +343,7 @@ export class BtwHistoryPanel implements Component, Focusable {
 	#openComposer(record: BtwHistoryRecord): void {
 		const input = new Input();
 		input.prompt = theme.fg("accent", t("nav.btw.followUpPrompt"));
-		input.placeholder = "Ask about this answer…";
+		input.placeholder = t("nav.btw.askPlaceholder");
 		if (this.#options.spaceHoldKeys !== undefined) input.spaceHold.keys = this.#options.spaceHoldKeys;
 		input.spaceHold.handler = this.#options.spaceHold?.(input);
 		const composer: FollowUpComposer = { recordId: record.id, input, abortController: new AbortController() };
@@ -385,11 +385,11 @@ export class BtwHistoryPanel implements Component, Focusable {
 				this.#focus = "answer";
 				this.#jumpToEnd();
 			} else {
-				composer.notice = `Follow-up was not started. Your draft is kept; ${editorKey("tui.input.submit")} to retry.`;
+				composer.notice = t("nav.btw.followUpNotStarted", { key: editorKey("tui.input.submit") });
 			}
 		} catch {
 			if (this.#composer === composer) {
-				composer.notice = `Could not start the follow-up. Your draft is kept; ${editorKey("tui.input.submit")} to retry.`;
+				composer.notice = t("nav.btw.followUpFailed", { key: editorKey("tui.input.submit") });
 			}
 		} finally {
 			this.#followUpPending = false;
@@ -602,7 +602,12 @@ export class BtwHistoryPanel implements Component, Focusable {
 		const items = this.#records.map(record => {
 			const followUps = record.followUps?.length ?? 0;
 			const detail: TspSpan[] = [span(this.#timeFormat.format(record.createdAt), "mono")];
-			if (followUps > 0) detail.push(span(` · ${followUps} follow-up${followUps === 1 ? "" : "s"}`));
+			if (followUps > 0)
+				detail.push(
+					span(
+						` · ${t(followUps === 1 ? "nav.btw.followUpCountOne" : "nav.btw.followUpCountOther", { count: followUps })}`,
+					),
+				);
 			const status = describeStatus(getBtwLatestTurn(record).status);
 			// The question is markdown: its `code` reads as mono, without the backticks.
 			const label = sanitizeDisplayLine(record.question)
@@ -631,7 +636,7 @@ export class BtwHistoryPanel implements Component, Focusable {
 		const meta: TspSpan[] =
 			index === 0
 				? [span(this.#dateFormat.format(turn.createdAt))]
-				: [span("Follow-up · "), span(this.#timeFormat.format(turn.createdAt))];
+				: [span(t("nav.btw.turnFollowUp")), span(this.#timeFormat.format(turn.createdAt))];
 		const status = describeStatus(turn.status);
 		if (status) meta.push(span("  ·  "), ...status);
 		// The question stays markdown so its inline code and links render.
@@ -677,15 +682,11 @@ export class BtwHistoryPanel implements Component, Focusable {
 			"col",
 			{ role: "omp.btw.empty", align: "center", gap: "sm" },
 			[
-				text("No side questions yet", { role: "omp.btw.empty.title" }),
-				text(
-					[
-						span("Ask one with "),
-						span("/btw <question>", "code"),
-						span(". The answer stays out of the main conversation."),
-					],
-					{ role: "omp.btw.empty.hint", wrap: "word" },
-				),
+				text(t("nav.btw.emptyTitle"), { role: "omp.btw.empty.title" }),
+				text([span(t("nav.btw.emptyHintPre")), span("/btw <question>", "code"), span(t("nav.btw.emptyHintPost"))], {
+					role: "omp.btw.empty.hint",
+					wrap: "word",
+				}),
 			],
 			"empty",
 		);
@@ -700,22 +701,30 @@ export class BtwHistoryPanel implements Component, Focusable {
 		if (this.#composer) {
 			return actionBar([
 				null,
-				actionButton("Cancel", "discard", { keys: "escape" }),
-				actionButton(this.#followUpPending ? "Sending…" : "Send", "send", { keys: "enter", tone: "accent" }),
+				actionButton(t("nav.btw.actionCancel"), "discard", { keys: "escape" }),
+				actionButton(this.#followUpPending ? t("nav.btw.actionSending") : t("nav.btw.actionSend"), "send", {
+					keys: "enter",
+					tone: "accent",
+				}),
 			]);
 		}
 		const running = record !== undefined && getBtwLatestTurn(record).status === "running";
 		const hides = this.#options.escapeHides === true;
 		const buttons: (NativeNode | null)[] = [];
-		if (running) buttons.push(actionButton("Stop answer", "stop", { keys: hides ? "x" : "escape" }));
+		if (running) buttons.push(actionButton(t("nav.btw.actionStop"), "stop", { keys: hides ? "x" : "escape" }));
 		if (record && getBtwCopyText(record) !== undefined) {
-			buttons.push(actionButton(copied ? "Copy again" : "Copy answer", "copy-answer", { keys: "c" }));
-			if (copied) buttons.push(text([span("✓ Copied", "success")], { role: "omp.btw.copied" }));
+			buttons.push(
+				actionButton(copied ? t("nav.btw.actionCopyAgain") : t("nav.btw.actionCopyAnswer"), "copy-answer", {
+					keys: "c",
+				}),
+			);
+			if (copied) buttons.push(text([span(t("nav.btw.copiedBadge"), "success")], { role: "omp.btw.copied" }));
 		}
 		buttons.push(null);
 		// Clicking Close always dismisses the sheet; its tooltip names Esc only where Esc does too.
-		buttons.push(actionButton("Close", "close", running && !hides ? undefined : { keys: "escape" }));
-		if (canFollowUp) buttons.push(actionButton("Follow up", "follow-up", { keys: "f", tone: "accent" }));
+		buttons.push(actionButton(t("nav.btw.actionClose"), "close", running && !hides ? undefined : { keys: "escape" }));
+		if (canFollowUp)
+			buttons.push(actionButton(t("nav.btw.actionFollowUp"), "follow-up", { keys: "f", tone: "accent" }));
 		return actionBar(buttons);
 	}
 
@@ -963,7 +972,10 @@ export class BtwHistoryPanel implements Component, Focusable {
 				lines.push(
 					row(
 						theme.fg("dim", editorKeys("tui.select.up", "tui.select.down")) +
-							theme.fg("muted", ` ${this.#focus === "list" ? "select" : "scroll"}`),
+							theme.fg(
+								"muted",
+								` ${this.#focus === "list" ? t("nav.btw.hintSelect") : t("nav.btw.hintScroll")}`,
+							),
 						width,
 					),
 				);

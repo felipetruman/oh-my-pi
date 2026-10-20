@@ -53,12 +53,8 @@ import { CLOSE_ACTION, type PickerEvent, picker, pickerAction, pickerEvent } fro
 const EARLIER_TURNS_KEY = "earlier";
 
 /** Leading item of a truncated transcript list; selecting it loads the older turns. */
-const earlierTurnsItem: NativeNode = node(
-	"item",
-	{ label: [span("Earlier turns…", "muted")], hint: ["a"] },
-	undefined,
-	EARLIER_TURNS_KEY,
-);
+const earlierTurnsItem = (): NativeNode =>
+	node("item", { label: [span(t("nav.copy.earlierTurns"), "muted")], hint: ["a"] }, undefined, EARLIER_TURNS_KEY);
 
 /** First non-blank line of `source`, whitespace collapsed. */
 function firstLine(source: string): string {
@@ -79,19 +75,22 @@ function turnSummary(entry: TranscriptEntry): { label: string; role: string } {
 				if (content.type === "text") prose += content.text;
 				else if (content.type === "toolCall") tools.push(content.name);
 			}
-			const label = firstLine(prose) || tools.join(", ") || "thinking";
+			const label = firstLine(prose) || tools.join(", ") || t("nav.copy.thinking");
 			return { label, role: "omp.assistant" };
 		}
 		case "toolResult":
-			return { label: `${message.toolName} result`, role: `omp.tool.${message.toolName}` };
+			return {
+				label: t("selector.copy.block.toolResult", { tool: message.toolName }),
+				role: `omp.tool.${message.toolName}`,
+			};
 		case "bashExecution":
 			return { label: `$ ${firstLine(message.command)}`, role: "omp.tool.bash" };
 		case "pythonExecution":
 			return { label: firstLine(message.code), role: "omp.tool.eval" };
 		case "compactionSummary":
-			return { label: "Compaction summary", role: "omp.summary" };
+			return { label: t("nav.copy.compactionSummary"), role: "omp.summary" };
 		case "branchSummary":
-			return { label: "Branch summary", role: "omp.summary" };
+			return { label: t("nav.copy.branchSummary"), role: "omp.summary" };
 		case "custom":
 		case "hookMessage": {
 			const draft = userTurnDraft(entry);
@@ -708,10 +707,10 @@ export class CopySelectorComponent implements Component {
 		const blocks = target ? this.#blocksFor(target) : [];
 		const descended = this.#blocks !== undefined;
 		const focused = this.#blocks?.[this.#blockSelected];
-		const action = this.deps.actionLabel ?? "copy";
+		const action = this.deps.actionLabel ?? t("selector.copy.controlCopy");
 		const props: TspPickerProps = {
-			title: this.deps.title ?? "Copy",
-			...(this.deps.title ? {} : { subtitle: "Pick what to put on the clipboard" }),
+			title: this.deps.title ?? t("selector.copy.title"),
+			...(this.deps.title ? {} : { subtitle: t("nav.copy.pickSubtitle") }),
 			icon: "clipboard",
 			noun: "turns",
 			size: "lg",
@@ -722,14 +721,14 @@ export class CopySelectorComponent implements Component {
 			items: this.#pickerItems.of(this.#targets),
 			selected: target?.turnId ?? null,
 			total: this.#targets.length,
-			empty: "Nothing to copy",
+			empty: t("nav.copy.nothing"),
 			focus: descended ? "preview" : "list",
 			actions: compact([
 				pickerAction("pick", `${action[0]!.toUpperCase()}${action.slice(1)}`, "enter", { primary: true }),
-				!descended && blocks.length > 0 ? pickerAction("blocks", "Blocks", "right") : undefined,
-				focused?.href && this.deps.onOpen ? pickerAction("open-link", "Open link", "o") : undefined,
-				!descended && this.#truncated ? pickerAction("earlier", "Earlier turns", "a") : undefined,
-				descended ? { ...CLOSE_ACTION, label: "Back" } : CLOSE_ACTION,
+				!descended && blocks.length > 0 ? pickerAction("blocks", t("nav.copy.blocksAction"), "right") : undefined,
+				focused?.href && this.deps.onOpen ? pickerAction("open-link", t("nav.copy.openLink"), "o") : undefined,
+				!descended && this.#truncated ? pickerAction("earlier", t("nav.copy.earlierTurnsAction"), "a") : undefined,
+				descended ? { ...CLOSE_ACTION, label: t("nav.copy.back") } : CLOSE_ACTION,
 			]),
 		};
 		const preview: NativeNode[] = [];
@@ -737,7 +736,13 @@ export class CopySelectorComponent implements Component {
 			const whole = targetCopy(target, blocks);
 			if (whole.content.trim()) {
 				preview.push(
-					previewSection("whole", "Whole message", turnPreview(target, whole.content), whole.content, false),
+					previewSection(
+						"whole",
+						t("nav.copy.wholeMessage"),
+						turnPreview(target, whole.content),
+						whole.content,
+						false,
+					),
 				);
 			}
 			blocks.forEach((block, index) => {
@@ -765,23 +770,29 @@ export class CopySelectorComponent implements Component {
 			return cached.node;
 		}
 		const target = this.#targets[this.#selected];
-		const action = this.deps.actionLabel ?? "copy";
-		const upDown = actionHint(["tui.select.up", "tui.select.down"], this.#blocks ? "block" : "step");
-		const cancel = actionHint("tui.select.cancel", this.#blocks ? "back" : "close");
+		const action = this.deps.actionLabel ?? t("selector.copy.controlCopy");
+		const upDown = actionHint(
+			["tui.select.up", "tui.select.down"],
+			this.#blocks ? t("nav.copy.hintBlock") : t("nav.copy.hintStep"),
+		);
+		const cancel = actionHint("tui.select.cancel", this.#blocks ? t("nav.copy.hintBack") : t("nav.copy.hintClose"));
 		const children: NativeChild[] = [];
 		let hints: (NativeHint | undefined)[];
 		if (this.#blocks && target) {
 			const block = this.#blocks[this.#blockSelected];
 			children.push(
-				row([text([span("‹ back", "accent")], { actions: { click: "back" } })], { gap: "md" }),
+				row([text([span(t("nav.copy.backLink"), "accent")], { actions: { click: "back" } })], { gap: "md" }),
 				node(
 					"list",
-					{ selected: String(this.#blockSelected), empty: "No blocks" },
+					{ selected: String(this.#blockSelected), empty: t("nav.copy.noBlocks") },
 					this.#blocks.map((item, index) => {
 						const lines = item.content.split("\n").length;
 						return node(
 							"item",
-							{ label: item.label, detail: `${lines} line${lines === 1 ? "" : "s"}` },
+							{
+								label: item.label,
+								detail: t(lines === 1 ? "nav.copy.lineOne" : "nav.copy.lineOther", { count: lines }),
+							},
 							undefined,
 							String(index),
 						);
@@ -792,16 +803,16 @@ export class CopySelectorComponent implements Component {
 			if (block) children.push(this.#blockPreview(block, action));
 			hints = [
 				upDown,
-				{ keys: ["left", ...(cancel?.keys ?? [])], label: "back" },
+				{ keys: ["left", ...(cancel?.keys ?? [])], label: t("nav.copy.hintBack") },
 				{ keys: ["enter"], label: action },
-				block?.href && this.deps.onOpen ? { keys: ["o"], label: "open" } : undefined,
+				block?.href && this.deps.onOpen ? { keys: ["o"], label: t("nav.copy.hintOpen") } : undefined,
 			];
 		} else {
 			const blocks = target ? this.#blocksFor(target) : [];
 			children.push(
 				node(
 					"list",
-					{ selected: target?.turnId ?? null, virtual: true, max: 0.5, empty: "Nothing to copy" },
+					{ selected: target?.turnId ?? null, virtual: true, max: 0.5, empty: t("nav.copy.nothing") },
 					this.#transcriptItems(),
 					"list",
 				),
@@ -841,7 +852,7 @@ export class CopySelectorComponent implements Component {
 		const cached = this.#nativeItems;
 		if (cached?.targets === this.#targets && cached.truncated === this.#truncated) return cached.items;
 		const items = this.#targets.map(target => turnItem(target));
-		if (this.#truncated) items.unshift(earlierTurnsItem);
+		if (this.#truncated) items.unshift(earlierTurnsItem());
 		this.#nativeItems = { targets: this.#targets, truncated: this.#truncated, items };
 		return items;
 	}
@@ -913,21 +924,22 @@ export class CopySelectorComponent implements Component {
 					color: OUTLINE_COLOR,
 					caption:
 						blocks.length > 0
-							? `${blocks.length} block${blocks.length === 1 ? "" : "s"} ${formatKeyHint("right")}`
+							? `${t(blocks.length === 1 ? "nav.copy.blockCountOne" : "nav.copy.blockCountOther", { count: blocks.length })} ${formatKeyHint("right")}`
 							: undefined,
 				},
 			}).column;
 		}
 
 		const selectedBlock = this.#blocks?.[this.#blockSelected];
-		const openHint = selectedBlock?.href && this.deps.onOpen ? `  ${formatKeyHint("o")} open` : "";
-		const action = this.deps.actionLabel ?? "copy";
+		const openHint =
+			selectedBlock?.href && this.deps.onOpen ? `  ${formatKeyHint("o")} ${t("nav.copy.hintOpen")}` : "";
+		const action = this.deps.actionLabel ?? t("selector.copy.controlCopy");
 		const upDown = editorKeys("tui.select.up", "tui.select.down");
 		const enter = formatKeyHint("enter");
 		const cancel = editorKey("tui.select.cancel");
 		const hint = this.#blocks
-			? `${this.#blockSelected + 1}/${this.#blocks.length}  ${upDown} block  ${formatKeyHint("left")}/${cancel} back  ${enter} ${action}${openHint}  click ${theme.cmd.copy}/${theme.cmd.share}`
-			: `${this.#targets.length > 0 ? `${this.#selected + 1}/${this.#targets.length}  ` : ""}${upDown} step  ${blocks.length > 0 ? `${formatKeyHint("right")} blocks  ` : ""}${enter} ${action}  ${this.#truncated ? `${formatKeyHint("a")} earlier turns  ` : ""}${expandKeyHint()} expand  ${cancel} close`;
+			? `${this.#blockSelected + 1}/${this.#blocks.length}  ${upDown} ${t("nav.copy.hintBlock")}  ${formatKeyHint("left")}/${cancel} ${t("nav.copy.hintBack")}  ${enter} ${action}${openHint}  ${t("nav.copy.hintClick")} ${theme.cmd.copy}/${theme.cmd.share}`
+			: `${this.#targets.length > 0 ? `${this.#selected + 1}/${this.#targets.length}  ` : ""}${upDown} ${t("nav.copy.hintStep")}  ${blocks.length > 0 ? `${formatKeyHint("right")} ${t("nav.copy.hintBlocks")}  ` : ""}${enter} ${action}  ${this.#truncated ? `${formatKeyHint("a")} ${t("nav.copy.hintEarlierTurns")}  ` : ""}${expandKeyHint()} ${t("nav.copy.hintExpand")}  ${cancel} ${t("nav.copy.hintClose")}`;
 		const anchorId = target
 			? this.#blocks
 				? `copy:${target.turnId}:block:${this.#blockSelected}`
@@ -937,7 +949,7 @@ export class CopySelectorComponent implements Component {
 			header: [
 				this.deps.title
 					? theme.bold(this.deps.title)
-					: `${theme.cmd.copy} ${theme.bold("Copy")}${theme.sep.dot}${theme.fg("dim", t("selector.copy.subtitle"))}`,
+					: `${theme.cmd.copy} ${theme.bold(t("selector.copy.title"))}${theme.sep.dot}${theme.fg("dim", t("selector.copy.subtitle"))}`,
 			],
 			body: {
 				lines: composed.lines,
@@ -968,7 +980,7 @@ export class CopySelectorComponent implements Component {
 			const selected = index === this.#blockSelected;
 			const captionColor: ThemeColor = selected ? OUTLINE_COLOR : "dim";
 			const controls: Array<{ action: ControlRegion["action"]; text: string }> = [
-				{ action: "copy", text: `${theme.cmd.copy} ${this.deps.actionLabel ?? "copy"}` },
+				{ action: "copy", text: `${theme.cmd.copy} ${this.deps.actionLabel ?? t("selector.copy.controlCopy")}` },
 			];
 			if (block.href && this.deps.onOpen) {
 				controls.push({ action: "open", text: `${theme.cmd.share} ${t("selector.copy.controlOpen")}` });
@@ -1101,7 +1113,10 @@ export function collectBlocks(entries: readonly TranscriptEntry[]): CopyBlock[] 
 					const command = commandFromToolCall(content);
 					if (command) {
 						blocks.push({
-							label: command.kind === "bash" ? t("selector.copy.block.bashCommand") : "eval code",
+							label:
+								command.kind === "bash"
+									? t("selector.copy.block.bashCommand")
+									: t("selector.copy.block.evalCode"),
 							content: command.code,
 							entry,
 							kind: "command",
@@ -1113,7 +1128,12 @@ export function collectBlocks(entries: readonly TranscriptEntry[]): CopyBlock[] 
 			}
 			case "toolResult": {
 				const text = toolResultText(message);
-				if (text) blocks.push({ label: `${message.toolName} result`, content: text, entry });
+				if (text)
+					blocks.push({
+						label: t("selector.copy.block.toolResult", { tool: message.toolName }),
+						content: text,
+						entry,
+					});
 				break;
 			}
 			case "bashExecution":
@@ -1121,7 +1141,7 @@ export function collectBlocks(entries: readonly TranscriptEntry[]): CopyBlock[] 
 				if (message.output.trim()) blocks.push({ label: "output", content: message.output, entry });
 				break;
 			case "pythonExecution":
-				blocks.push({ label: "eval code", content: message.code, entry, language: "python" });
+				blocks.push({ label: t("selector.copy.block.evalCode"), content: message.code, entry, language: "python" });
 				if (message.output.trim()) blocks.push({ label: "output", content: message.output, entry });
 				break;
 			default:
@@ -1145,7 +1165,7 @@ export function targetCopy(target: OutlineTarget, blocks: readonly CopyBlock[]):
 		}
 		case "toolResult": {
 			const text = toolResultText(message);
-			if (text) return { content: text, label: `${message.toolName} result` };
+			if (text) return { content: text, label: t("selector.copy.block.toolResult", { tool: message.toolName }) };
 			break;
 		}
 		case "bashExecution":
