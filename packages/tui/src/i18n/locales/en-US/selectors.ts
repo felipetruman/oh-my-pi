@@ -70,9 +70,6 @@ export const selectors = {
 		"context {tokens} exceeds {limit} limit · compacts with current model, then switches",
 
 	// ── Compact session model picker (alt+p, `/switch`) ───────────────────
-	"model.picker.footerQuickRole": "↑/↓ roles · Enter apply role model · type to search · Esc close",
-	"model.picker.footerSession": "↑/↓ models · Enter use for this session · type to search · @ quick roles · Esc close",
-	"model.picker.footerTask": "↑/↓ models · Enter use for Task subagents · type to search · Esc close",
 	"model.picker.noQuickRoles": "  No quick roles in the Ctrl+P cycle",
 	"model.picker.statusQuickRole": "Quick role switch — applies its model and thinking for this session",
 	"model.picker.statusSession": "Session-only switch — role models stay unchanged",
@@ -436,7 +433,6 @@ export const selectors = {
 	"advisor.help.close": "Close the editor. Unsaved changes are discarded.",
 	"advisor.help.save": "Write this scope's WATCHDOG.yml and reload the live advisors without a restart.",
 	"advisor.help.scope": "Switch between the project and user WATCHDOG.yml. Currently editing the {scope}-level file.",
-	"advisor.footer.detail": 'Editing "{name}" · Enter / click edit field · Esc back',
 	"advisor.footer.list": "↑↓ move · Enter / click select · scroll preview on the right · Esc close",
 	"advisor.footer.model": "Type to search · Enter / click twice picks · Esc back",
 	"advisor.footer.name": "Type a name · Enter save · Esc cancel",

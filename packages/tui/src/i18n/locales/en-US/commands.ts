@@ -199,6 +199,13 @@ export const commands = {
 
 	// ── Session lifecycle (`/clear`, `/fresh`, `/reset`, `/delete`, `/fork`) ──
 	"command.delete.inMemory": "Nothing to delete (in-memory session)",
+	"command.session.build": "Build:",
+	"command.session.buildN": "Build {n}:",
+	"command.session.buildsHidden": "Builds 2–{last}:",
+	"command.session.buildsMore": "{count} more",
+	"command.session.running": "Running:",
+	"command.fork.forked": "Session forked",
+	"command.fork.forkedReturn": "Session forked · return to original: {resume} or /resume {id}",
 	"command.fork.busy": "Wait for the current response to finish or abort it before forking.",
 	"command.fork.done": "Session forked to {target}",
 	"command.fork.failed": "Fork failed (session not persisted or cancelled)",

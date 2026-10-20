@@ -65,10 +65,6 @@ export const selectors: TranslationTable = {
 		"contexto {tokens} excede o limite de {limit} · compacta com o modelo atual e então troca",
 
 	// ── Compact session model picker (alt+p, `/switch`) ───────────────────
-	"model.picker.footerQuickRole": "↑/↓ papéis · Enter aplicar modelo do papel · digite para buscar · Esc fechar",
-	"model.picker.footerSession":
-		"↑/↓ modelos · Enter usar nesta sessão · digite para buscar · @ papéis rápidos · Esc fechar",
-	"model.picker.footerTask": "↑/↓ modelos · Enter usar nos subagentes Task · digite para buscar · Esc fechar",
 	"model.picker.noQuickRoles": "  Nenhum papel rápido no ciclo Ctrl+P",
 	"model.picker.statusQuickRole": "Troca de papel rápido — aplica o modelo e o raciocínio dele nesta sessão",
 	"model.picker.statusSession": "Troca apenas nesta sessão — os modelos dos papéis não mudam",
@@ -436,7 +432,6 @@ export const selectors: TranslationTable = {
 	"advisor.help.save": "Grava o WATCHDOG.yml deste escopo e recarrega os advisors ativos sem reiniciar.",
 	"advisor.help.scope":
 		"Alterna entre o WATCHDOG.yml de projeto e de usuário. Editando agora o arquivo de nível {scope}.",
-	"advisor.footer.detail": 'Editando "{name}" · Enter / clique editar campo · Esc voltar',
 	"advisor.footer.list": "↑↓ mover · Enter / clique selecionar · role a prévia à direita · Esc fechar",
 	"advisor.footer.model": "Digite para buscar · Enter / clique duas vezes escolhe · Esc voltar",
 	"advisor.footer.name": "Digite um nome · Enter salvar · Esc cancelar",

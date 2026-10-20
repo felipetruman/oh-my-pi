@@ -197,6 +197,13 @@ export const commands: TranslationTable = {
 
 	// ── Ciclo de vida da sessão ───────────────────────────────────────────
 	"command.delete.inMemory": "Nada para excluir (sessão em memória)",
+	"command.session.build": "Build:",
+	"command.session.buildN": "Build {n}:",
+	"command.session.buildsHidden": "Builds 2–{last}:",
+	"command.session.buildsMore": "mais {count}",
+	"command.session.running": "Em execução:",
+	"command.fork.forked": "Sessão bifurcada",
+	"command.fork.forkedReturn": "Sessão bifurcada · voltar ao original: {resume} ou /resume {id}",
 	"command.fork.busy": "Aguarde a resposta atual terminar ou aborte-a antes de bifurcar.",
 	"command.fork.done": "Sessão bifurcada para {target}",
 	"command.fork.failed": "A bifurcação falhou (sessão não persistida ou cancelada)",

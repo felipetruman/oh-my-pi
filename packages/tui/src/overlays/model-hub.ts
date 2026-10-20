@@ -309,20 +309,8 @@ const rolePickerColumns = (): readonly TspPickerColumn[] => [
 	{ id: "thinking", head: t("model.hub.col.thinking"), format: "dim", priority: 1 },
 ];
 
-/** Kind tab labels (sentence case; acronyms stay upper). */
-const MODEL_KIND_LABELS: Record<"all" | ModelKind, string> = {
-	all: "All",
-	chat: "Chat",
-	tiny: "Tiny",
-	image: "Image",
-	tts: "TTS",
-	stt: "STT",
-	search: "Search",
-	judge: "Judge",
-	embedding: "Embedding",
-	rerank: "Rerank",
-	video: "Video",
-};
+/** Kind tab labels (sentence case; acronyms stay upper). Resolved at render time so the locale applies. */
+const modelKindLabel = (kind: "all" | ModelKind): string => t(`model.hub.kind.${kind}`);
 
 const PROVIDER_REFRESH_DEBOUNCE_MS = 120;
 const RECENT_LIMIT = 15;
@@ -3580,7 +3568,7 @@ export class ModelHubComponent implements Component {
 		}
 		const tabs = MODEL_KIND_TABS.map(kind => ({
 			id: kind,
-			label: MODEL_KIND_LABELS[kind],
+			label: modelKindLabel(kind),
 			count: kind === "all" ? candidates.length : (counts.get(kind) ?? 0),
 		}));
 		this.#kindTabsMemo = { candidates, tabs };
